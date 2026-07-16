@@ -1,0 +1,267 @@
+let cadastros = [];
+
+// Máscaras para os campos
+document.getElementById('cpf').addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    value = value.replace(/(\d{3})(\d)/, '$1.$2');
+    value = value.replace(/(\d{3})(\d)/, '$1.$2');
+    value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    e.target.value = value;
+});
+
+document.getElementById('telefone').addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    value = value.replace(/^(\d{2})(\d)/g, '($1) $2');
+    value = value.replace(/(\d)(\d{4})$/, '$1-$2');
+    e.target.value = value;
+});
+
+// Formatar data para exibição
+function formatarData(data) {
+    return new Date(data).toLocaleDateString('pt-BR');
+}
+
+// Salvar cadastro
+document.getElementById('cadastroForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const cadastro = {
+        nomeCompleto: document.getElementById('nomeCompleto').value,
+        dataNascimento: document.getElementById('dataNascimento').value,
+        cpf: document.getElementById('cpf').value,
+        telefone: document.getElementById('telefone').value,
+        endereco: document.getElementById('endereco').value,
+        comodidade: document.getElementById('comodidade').value
+    };
+    
+    try {
+        const response = await fetch('/api/cadastros', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(cadastro)
+        });
+        
+        if (response.ok) {
+            alert('Cadastro salvo com sucesso!');
+            document.getElementById('cadastroForm').reset();
+            buscarCadastros();
+        } else {
+            const error = await response.json();
+            alert('Erro ao salvar: ' + error.message);
+        }
+    } catch (error) {
+        alert('Erro ao conectar com o servidor');
+    }
+});
+
+// Buscar cadastros
+async function buscarCadastros() {
+    const search = document.getElementById('searchInput').value;
+    
+    try {
+        const response = await fetch(`/api/cadastros?search=${search}`);
+        cadastros = await response.json();
+        exibirCadastros(cadastros);
+    } catch (error) {
+        alert('Erro ao buscar cadastros');
+    }
+}
+
+// Exibir cadastros na tela
+function exibirCadastros(cadastros) {
+    const container = document.getElementById('cadastrosList');
+    
+    if (cadastros.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999;">Nenhum cadastro encontrado</p>';
+        return;
+    }
+    
+    container.innerHTML = cadastros.map(cadastro => `
+        <div class="cadastro-item" id="cadastro-${cadastro._id}">
+            <h3>${cadastro.nomeCompleto}</h3>
+            <p><strong>CPF:</strong> ${cadastro.cpf}</p>
+            <p><strong>Telefone:</strong> ${cadastro.telefone}</p>
+            <p><strong>Endereço:</strong> ${cadastro.endereco}</p>
+            <p><strong>Comodidade:</strong> ${cadastro.comodidade}</p>
+            <p><strong>Data Nasc.:</strong> ${formatarData(cadastro.dataNascimento)}</p>
+            <div class="cadastro-actions">
+                <button class="btn-edit" onclick="editarCadastro('${cadastro._id}')">
+                    <i class="fas fa-edit"></i> Editar
+                </button>
+                <button class="btn-delete" onclick="deletarCadastro('${cadastro._id}')">
+                    <i class="fas fa-trash"></i> Excluir
+                </button>
+                <button class="btn-whatsapp" onclick="enviarWhatsApp('${cadastro.telefone}', '${cadastro.nomeCompleto}')">
+                    <i class="fab fa-whatsapp"></i> WhatsApp
+                </button>
+                <button class="btn-pdf" onclick="imprimirCadastro('${cadastro._id}')">
+                    <i class="fas fa-print"></i> Imprimir
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Deletar cadastro
+async function deletarCadastro(id) {
+    if (confirm('Tem certeza que deseja excluir este cadastro?')) {
+        try {
+            const response = await fetch(`/api/cadastros/${id}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                alert('Cadastro excluído com sucesso!');
+                buscarCadastros();
+            }
+        } catch (error) {
+            alert('Erro ao excluir cadastro');
+        }
+    }
+}
+
+// Imprimir cadastro específico
+function imprimirCadastro(id) {
+    const cadastro = cadastros.find(c => c._id === id);
+    if (!cadastro) return;
+    
+    const conteudo = `
+        <div style="padding: 20px; font-family: Arial;">
+            <h2 style="color: #333;">Ficha de Cadastro ACS</h2>
+            <hr>
+            <p><strong>Nome:</strong> ${cadastro.nomeCompleto}</p>
+            <p><strong>CPF:</strong> ${cadastro.cpf}</p>
+            <p><strong>Telefone:</strong> ${cadastro.telefone}</p>
+            <p><strong>Endereço:</strong> ${cadastro.endereco}</p>
+            <p><strong>Comodidade:</strong> ${cadastro.comodidade}</p>
+            <p><strong>Data de Nascimento:</strong> ${formatarData(cadastro.dataNascimento)}</p>
+        </div>
+    `;
+    
+    const element = document.createElement('div');
+    element.innerHTML = conteudo;
+    
+    html2pdf().from(element).save(`cadastro-${cadastro.nomeCompleto}.pdf`);
+}
+
+// Exportar PDF com resultados da busca
+function exportarPDF() {
+    const conteudo = `
+        <div style="padding: 20px; font-family: Arial;">
+            <h2 style="color: #333;">Cadastros ACS</h2>
+            <hr>
+            ${cadastros.map(cadastro => `
+                <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #ddd;">
+                    <p><strong>Nome:</strong> ${cadastro.nomeCompleto}</p>
+                    <p><strong>CPF:</strong> ${cadastro.cpf}</p>
+                    <p><strong>Telefone:</strong> ${cadastro.telefone}</p>
+                    <p><strong>Endereço:</strong> ${cadastro.endereco}</p>
+                    <p><strong>Comodidade:</strong> ${cadastro.comodidade}</p>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    const element = document.createElement('div');
+    element.innerHTML = conteudo;
+    
+    html2pdf().from(element).save('cadastros-acs.pdf');
+}
+
+// Exportar todos os cadastros em PDF
+async function exportarTodosPDF() {
+    try {
+        const response = await fetch('/api/cadastros');
+        const todosCadastros = await response.json();
+        
+        const conteudo = `
+            <div style="padding: 20px; font-family: Arial;">
+                <h2 style="color: #333;">Relatório Completo - Cadastros ACS</h2>
+                <p>Total de cadastros: ${todosCadastros.length}</p>
+                <hr>
+                ${todosCadastros.map(cadastro => `
+                    <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #ddd;">
+                        <p><strong>Nome:</strong> ${cadastro.nomeCompleto}</p>
+                        <p><strong>CPF:</strong> ${cadastro.cpf}</p>
+                        <p><strong>Telefone:</strong> ${cadastro.telefone}</p>
+                        <p><strong>Endereço:</strong> ${cadastro.endereco}</p>
+                        <p><strong>Comodidade:</strong> ${cadastro.comodidade}</p>
+                        <p><strong>Data Nasc.:</strong> ${formatarData(cadastro.dataNascimento)}</p>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        const element = document.createElement('div');
+        element.innerHTML = conteudo;
+        
+        html2pdf().from(element).save('relatorio-completo-acs.pdf');
+    } catch (error) {
+        alert('Erro ao exportar PDF');
+    }
+}
+
+// Enviar via WhatsApp
+function enviarWhatsApp(telefone, nome) {
+    const numero = telefone.replace(/\D/g, '');
+    const mensagem = encodeURIComponent(`Olá ${nome}! Sou ACS da sua região.`);
+    window.open(`https://wa.me/55${numero}?text=${mensagem}`, '_blank');
+}
+
+// Editar cadastro
+async function editarCadastro(id) {
+    const cadastro = cadastros.find(c => c._id === id);
+    if (!cadastro) return;
+    
+    // Preencher formulário com dados do cadastro
+    document.getElementById('nomeCompleto').value = cadastro.nomeCompleto;
+    document.getElementById('dataNascimento').value = cadastro.dataNascimento.split('T')[0];
+    document.getElementById('cpf').value = cadastro.cpf;
+    document.getElementById('telefone').value = cadastro.telefone;
+    document.getElementById('endereco').value = cadastro.endereco;
+    document.getElementById('comodidade').value = cadastro.comodidade;
+    
+    // Alterar botão para atualizar
+    const form = document.getElementById('cadastroForm');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.innerHTML = '<i class="fas fa-sync"></i> Atualizar Cadastro';
+    
+    // Remover evento anterior e adicionar novo
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+    
+    newForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const dadosAtualizados = {
+            nomeCompleto: document.getElementById('nomeCompleto').value,
+            dataNascimento: document.getElementById('dataNascimento').value,
+            cpf: document.getElementById('cpf').value,
+            telefone: document.getElementById('telefone').value,
+            endereco: document.getElementById('endereco').value,
+            comodidade: document.getElementById('comodidade').value
+        };
+        
+        try {
+            const response = await fetch(`/api/cadastros/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(dadosAtualizados)
+            });
+            
+            if (response.ok) {
+                alert('Cadastro atualizado com sucesso!');
+                location.reload();
+            }
+        } catch (error) {
+            alert('Erro ao atualizar cadastro');
+        }
+    });
+}
+
+// Carregar cadastros ao iniciar
+buscarCadastros();
