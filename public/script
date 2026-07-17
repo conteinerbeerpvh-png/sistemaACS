@@ -31,7 +31,8 @@ document.getElementById('cadastroForm').addEventListener('submit', async functio
         cpf: document.getElementById('cpf').value,
         telefone: document.getElementById('telefone').value,
         endereco: document.getElementById('endereco').value,
-        comodidade: document.getElementById('comodidade').value
+        bairro: document.getElementById('bairro').value,
+        doencasPreexistentes: document.getElementById('doencasPreexistentes').value || 'Nenhuma'
     };
     
     try {
@@ -84,7 +85,8 @@ function exibirCadastros(cadastros) {
             <p><strong>CPF:</strong> ${cadastro.cpf}</p>
             <p><strong>Telefone:</strong> ${cadastro.telefone}</p>
             <p><strong>Endereço:</strong> ${cadastro.endereco}</p>
-            <p><strong>Comodidade:</strong> ${cadastro.comodidade}</p>
+            <p><strong>Bairro:</strong> ${cadastro.bairro}</p>
+            <p><strong>Doenças Pré-existentes:</strong> ${cadastro.doencasPreexistentes}</p>
             <p><strong>Data Nasc.:</strong> ${formatarData(cadastro.dataNascimento)}</p>
             <div class="cadastro-actions">
                 <button class="btn-edit" onclick="editarCadastro('${cadastro._id}')">
@@ -135,7 +137,8 @@ function imprimirCadastro(id) {
             <p><strong>CPF:</strong> ${cadastro.cpf}</p>
             <p><strong>Telefone:</strong> ${cadastro.telefone}</p>
             <p><strong>Endereço:</strong> ${cadastro.endereco}</p>
-            <p><strong>Comodidade:</strong> ${cadastro.comodidade}</p>
+            <p><strong>Bairro:</strong> ${cadastro.bairro}</p>
+            <p><strong>Doenças Pré-existentes:</strong> ${cadastro.doencasPreexistentes}</p>
             <p><strong>Data de Nascimento:</strong> ${formatarData(cadastro.dataNascimento)}</p>
         </div>
     `;
@@ -158,7 +161,8 @@ function exportarPDF() {
                     <p><strong>CPF:</strong> ${cadastro.cpf}</p>
                     <p><strong>Telefone:</strong> ${cadastro.telefone}</p>
                     <p><strong>Endereço:</strong> ${cadastro.endereco}</p>
-                    <p><strong>Comodidade:</strong> ${cadastro.comodidade}</p>
+                    <p><strong>Bairro:</strong> ${cadastro.bairro}</p>
+                    <p><strong>Doenças Pré-existentes:</strong> ${cadastro.doencasPreexistentes}</p>
                 </div>
             `).join('')}
         </div>
@@ -187,7 +191,8 @@ async function exportarTodosPDF() {
                         <p><strong>CPF:</strong> ${cadastro.cpf}</p>
                         <p><strong>Telefone:</strong> ${cadastro.telefone}</p>
                         <p><strong>Endereço:</strong> ${cadastro.endereco}</p>
-                        <p><strong>Comodidade:</strong> ${cadastro.comodidade}</p>
+                        <p><strong>Bairro:</strong> ${cadastro.bairro}</p>
+                        <p><strong>Doenças Pré-existentes:</strong> ${cadastro.doencasPreexistentes}</p>
                         <p><strong>Data Nasc.:</strong> ${formatarData(cadastro.dataNascimento)}</p>
                     </div>
                 `).join('')}
@@ -221,7 +226,8 @@ async function editarCadastro(id) {
     document.getElementById('cpf').value = cadastro.cpf;
     document.getElementById('telefone').value = cadastro.telefone;
     document.getElementById('endereco').value = cadastro.endereco;
-    document.getElementById('comodidade').value = cadastro.comodidade;
+    document.getElementById('bairro').value = cadastro.bairro;
+    document.getElementById('doencasPreexistentes').value = cadastro.doencasPreexistentes;
     
     // Alterar botão para atualizar
     const form = document.getElementById('cadastroForm');
@@ -241,7 +247,8 @@ async function editarCadastro(id) {
             cpf: document.getElementById('cpf').value,
             telefone: document.getElementById('telefone').value,
             endereco: document.getElementById('endereco').value,
-            comodidade: document.getElementById('comodidade').value
+            bairro: document.getElementById('bairro').value,
+            doencasPreexistentes: document.getElementById('doencasPreexistentes').value || 'Nenhuma'
         };
         
         try {
@@ -262,6 +269,13 @@ async function editarCadastro(id) {
         }
     });
 }
+
+// Buscar ao pressionar Enter
+document.getElementById('searchInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        buscarCadastros();
+    }
+});
 
 // Carregar cadastros ao iniciar
 buscarCadastros();
