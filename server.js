@@ -4,120 +4,71 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+const Cadastro = require('./models/cadastro');
 const app = express();
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/acs_cadastro';
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Conexão com MongoDB
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/acs_cadastro';
-
 mongoose.connect(MONGODB_URI)
-    .then(() => console.log('✅ Conectado ao MongoDB'))
-    .catch(err => console.error('❌ Erro MongoDB:', err));
+    .then(() => console.log('MongoDB connected'))
+    .catch((error) => console.error('MongoDB connection error:', error.message));
 
-// Model do Cadastro
-const cadastroSchema = new mongoose.Schema({
-    nomeCompleto: {
-        type: String,
-        required: [true, 'Nome completo é obrigatório']
-    },
-    dataNascimento: {
-        type: Date,
-        required: [true, 'Data de nascimento é obrigatória']
-    },
-    endereco: {
-        type: String,
-        required: [true, 'Endereço é obrigatório']
-    },
-    numero: {
-        type: String,
-        required: [true, 'Número é obrigatório']
-    },
-    bairro: {
-        type: String,
-        required: [true, 'Bairro é obrigatório']
-    },
-    doencasPreexistentes: {
-        type: String,
-        default: 'Nenhuma'
-    },
-    cpf: {
-        type: String,
-        required: [true, 'CPF é obrigatório'],
-        unique: true
-    },
-    telefone: {
-        type: String,
-        required: [true, 'Telefone é obrigatório']
-    },
-    dataCadastro: {
-        type: Date,
-        default: Date.now
+function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function dadosDoCadastro(body) {
+    return {
+        nomeCompleto: body.nomeCompleto?.trim(),
+        dataNascimento: body.dataNascimento,
+        endereco: body.endereco?.trim(),
+        numero: body.numero?.trim(),
+        bairro: body.bairro?.trim(),
+        doencasPreexistentes: body.doencasPreexistentes?.trim() || 'Nenhuma',
+        cpf: body.cpf?.trim(),
+        telefone: body.telefone?.trim()
+    };
+}
+
+function bancoDisponivel(req, res, next) {
+    if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({ message: 'Banco de dados indisponivel. Verifique MONGODB_URI.' });
     }
-});
+    next();
+}
 
-const Cadastro = mongoose.model('Cadastro', cadastroSchema);
+app.use('/api', bancoDisponivel);
 
-// API Routes
-
-// CREATE - Criar novo cadastro
 app.post('/api/cadastros', async (req, res) => {
     try {
-        const cadastro = new Cadastro({
-            nomeCompleto: req.body.nomeCompleto,
-            dataNascimento: req.body.dataNascimento,
-            endereco: req.body.endereco,
-            numero: req.body.numero,
-            bairro: req.body.bairro,
-            doencasPreexistentes: req.body.doencasPreexistentes || 'Nenhuma',
-            cpf: req.body.cpf,
-            telefone: req.body.telefone
-        });
-        
-        const novoCadastro = await cadastro.save();
-        console.log('✅ Cadastro criado:', novoCadastro._id);
+        const novoCadastro = await Cadastro.create(dadosDoCadastro(req.body));
         res.status(201).json(novoCadastro);
     } catch (error) {
-        console.error('❌ Erro ao criar:', error.message);
         if (error.code === 11000) {
-            res.status(400).json({ message: 'CPF já cadastrado!' });
-        } else {
-            res.status(400).json({ message: error.message });
+            return res.status(409).json({ message: 'CPF ja cadastrado.' });
         }
+        res.status(400).json({ message: error.message });
     }
 });
 
-// READ - Buscar todos os cadastros (com busca)
 app.get('/api/cadastros', async (req, res) => {
     try {
-        const { search } = req.query;
-        let query = {};
-        
-        if (search && search.trim() !== '') {
-            const searchTerm = search.trim();
-            query = {
-                $or: [
-                    { nomeCompleto: { $regex: searchTerm, $options: 'i' } },
-                    { cpf: { $regex: searchTerm, $options: 'i' } },
-                    { telefone: { $regex: searchTerm, $options: 'i' } },
-                    { bairro: { $regex: searchTerm, $options: 'i' } },
-                    { endereco: { $regex: searchTerm, $options: 'i' } }
-                ]
-            };
-        }
-        
+        const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+        const query = search ? {
+            $or: ['nomeCompleto', 'cpf', 'telefone', 'bairro', 'endereco'].map((campo) => ({
+                [campo]: { $regex: escapeRegex(search), $options: 'i' }
+            }))
+        } : {};
         const cadastros = await Cadastro.find(query).sort({ dataCadastro: -1 });
-        console.log(`📋 Busca realizada: ${cadastros.length} resultados`);
         res.json(cadastros);
     } catch (error) {
-        console.error('❌ Erro na busca:', error.message);
         res.status(500).json({ message: error.message });
     }
 });
 
-// READ - Buscar todos sem filtro (para PDF completo)
 app.get('/api/cadastros/todos', async (req, res) => {
     try {
         const cadastros = await Cadastro.find().sort({ dataCadastro: -1 });
@@ -127,79 +78,50 @@ app.get('/api/cadastros/todos', async (req, res) => {
     }
 });
 
-// READ - Buscar cadastro por ID
 app.get('/api/cadastros/:id', async (req, res) => {
     try {
         const cadastro = await Cadastro.findById(req.params.id);
-        if (!cadastro) {
-            return res.status(404).json({ message: 'Cadastro não encontrado' });
-        }
+        if (!cadastro) return res.status(404).json({ message: 'Cadastro nao encontrado.' });
         res.json(cadastro);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(400).json({ message: 'ID de cadastro invalido.' });
     }
 });
 
-// UPDATE - Atualizar cadastro
 app.put('/api/cadastros/:id', async (req, res) => {
     try {
         const cadastro = await Cadastro.findByIdAndUpdate(
             req.params.id,
-            {
-                nomeCompleto: req.body.nomeCompleto,
-                dataNascimento: req.body.dataNascimento,
-                endereco: req.body.endereco,
-                numero: req.body.numero,
-                bairro: req.body.bairro,
-                doencasPreexistentes: req.body.doencasPreexistentes || 'Nenhuma',
-                cpf: req.body.cpf,
-                telefone: req.body.telefone
-            },
+            dadosDoCadastro(req.body),
             { new: true, runValidators: true }
         );
-        
-        if (!cadastro) {
-            return res.status(404).json({ message: 'Cadastro não encontrado' });
-        }
-        
-        console.log('✅ Cadastro atualizado:', cadastro._id);
+        if (!cadastro) return res.status(404).json({ message: 'Cadastro nao encontrado.' });
         res.json(cadastro);
     } catch (error) {
-        console.error('❌ Erro ao atualizar:', error.message);
+        if (error.code === 11000) return res.status(409).json({ message: 'CPF ja cadastrado.' });
         res.status(400).json({ message: error.message });
     }
 });
 
-// DELETE - Excluir cadastro
 app.delete('/api/cadastros/:id', async (req, res) => {
     try {
         const cadastro = await Cadastro.findByIdAndDelete(req.params.id);
-        if (!cadastro) {
-            return res.status(404).json({ message: 'Cadastro não encontrado' });
-        }
-        console.log('🗑️ Cadastro excluído:', req.params.id);
-        res.json({ message: 'Cadastro excluído com sucesso' });
+        if (!cadastro) return res.status(404).json({ message: 'Cadastro nao encontrado.' });
+        res.json({ message: 'Cadastro excluido com sucesso.' });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(400).json({ message: 'ID de cadastro invalido.' });
     }
 });
 
-// Serve frontend
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Health check
 app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'ok', 
+    res.json({
+        status: 'ok',
         database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
         timestamp: new Date()
     });
 });
 
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
-    console.log(`📝 Acesse: http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

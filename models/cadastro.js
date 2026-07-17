@@ -13,9 +13,17 @@ const cadastroSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    comodidade: {
+    numero: {
         type: String,
         required: true
+    },
+    bairro: {
+        type: String,
+        required: true
+    },
+    doencasPreexistentes: {
+        type: String,
+        default: 'Nenhuma'
     },
     cpf: {
         type: String,

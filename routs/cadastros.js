@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const Cadastro = require('../models/Cadastro');
+const Cadastro = require('../models/cadastro');
 
 // CREATE - Criar novo cadastro
 router.post('/', async (req, res) => {

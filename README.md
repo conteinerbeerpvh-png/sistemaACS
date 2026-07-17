@@ -1,30 +1,16 @@
-# ACS Cadastro - Sistema de Cadastro para Agentes Comunitários de Saúde
+# ACS Cadastro
 
-## 📋 Sobre o Projeto
+Sistema de cadastro para Agentes Comunitarios de Saude.
 
-Sistema completo de cadastro para ACS (Agentes Comunitários de Saúde) com interface moderna e intuitiva. Permite gerenciar cadastros de pacientes com funcionalidades de busca, exportação em PDF e envio via WhatsApp.
+## Executar localmente
 
-## 🚀 Funcionalidades
+1. Copie `.env.example` para `.env` e informe uma URL valida do MongoDB em `MONGODB_URI`.
+2. Instale as dependencias: `npm install`.
+3. Inicie o servidor: `npm start`.
+4. Abra `http://localhost:3000`.
 
-- ✅ Cadastro completo de pacientes
-- ✅ Busca inteligente por nome, CPF ou telefone
-- ✅ Exportação de cadastros em PDF
-- ✅ Envio direto via WhatsApp
-- ✅ Interface responsiva e intuitiva
-- ✅ Validação de campos com máscaras
-- ✅ CRUD completo (Criar, Ler, Atualizar, Deletar)
+## Publicacao
 
-## 🛠️ Tecnologias Utilizadas
+Este projeto possui backend em Node.js e banco MongoDB. Ele nao funciona no GitHub Pages, pois GitHub Pages publica apenas arquivos estaticos e nao executa `server.js`.
 
-- **Frontend:** HTML5, CSS3, JavaScript Vanilla
-- **Backend:** Node.js, Express.js
-- **Banco de Dados:** MongoDB (Mongoose ODM)
-- **Hospedagem:** GitHub + Render
-- **Bibliotecas:** html2pdf.js, Font Awesome
-
-## 📦 Instalação Local
-
-1. Clone o repositório:
-```bash
-git clone https://github.com/seu-usuario/acs-cadastro.git
-cd acs-cadastro
+Publique o repositorio em um servico Node.js como Render ou Railway e configure a variavel de ambiente `MONGODB_URI` com a URL do MongoDB Atlas. O comando de inicio e `npm start`.
