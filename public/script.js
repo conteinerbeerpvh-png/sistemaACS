@@ -114,22 +114,38 @@ function exibirCadastros(lista) {
             <p><strong>🏥 Doenças:</strong> ${cadastro.doencasPreexistentes || 'Nenhuma'}</p>
             <p><strong>🎂 Nascimento:</strong> ${formatarData(cadastro.dataNascimento)}</p>
             <div class="cadastro-actions">
-                <button class="btn-edit" onclick="editarCadastro('${cadastro._id}')">
+                <button type="button" class="btn-edit" data-acao="editar" data-id="${cadastro._id}">
                     <i class="fas fa-edit"></i> Editar
                 </button>
-                <button class="btn-delete" onclick="deletarCadastro('${cadastro._id}')">
+                <button type="button" class="btn-delete" data-acao="excluir" data-id="${cadastro._id}">
                     <i class="fas fa-trash"></i> Excluir
                 </button>
-                <button class="btn-whatsapp" onclick="enviarWhatsApp('${cadastro.telefone}', '${cadastro.nomeCompleto}')">
+                <button type="button" class="btn-whatsapp" data-acao="whatsapp" data-id="${cadastro._id}">
                     <i class="fab fa-whatsapp"></i> WhatsApp
                 </button>
-                <button class="btn-print" onclick="imprimirCadastro('${cadastro._id}')">
+                <button type="button" class="btn-print" data-acao="imprimir" data-id="${cadastro._id}">
                     <i class="fas fa-print"></i> Imprimir
                 </button>
             </div>
         </div>
     `).join('');
 }
+
+document.getElementById('cadastrosList').addEventListener('click', (event) => {
+    const botao = event.target.closest('button[data-acao]');
+    if (!botao) return;
+
+    const cadastro = cadastros.find((item) => item._id === botao.dataset.id);
+    if (!cadastro) {
+        alert('Cadastro nao encontrado. Atualize a busca e tente novamente.');
+        return;
+    }
+
+    if (botao.dataset.acao === 'editar') editarCadastro(cadastro._id);
+    if (botao.dataset.acao === 'excluir') deletarCadastro(cadastro._id);
+    if (botao.dataset.acao === 'imprimir') imprimirCadastro(cadastro._id);
+    if (botao.dataset.acao === 'whatsapp') enviarWhatsApp(cadastro.telefone, cadastro.nomeCompleto);
+});
 
 // Salvar/Atualizar cadastro
 document.getElementById('cadastroForm').addEventListener('submit', async function(e) {
