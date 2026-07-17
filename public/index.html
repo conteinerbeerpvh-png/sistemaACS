@@ -20,7 +20,7 @@
                 <form id="cadastroForm">
                     <div class="form-group">
                         <label for="nomeCompleto">Nome Completo *</label>
-                        <input type="text" id="nomeCompleto" required>
+                        <input type="text" id="nomeCompleto" required placeholder="Digite o nome completo">
                     </div>
                     
                     <div class="form-group">
@@ -40,18 +40,17 @@
                     
                     <div class="form-group">
                         <label for="endereco">Endereço *</label>
-                        <input type="text" id="endereco" required>
+                        <input type="text" id="endereco" placeholder="Rua, número, complemento" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="comodidade">Comodidade *</label>
-                        <select id="comodidade" required>
-                            <option value="">Selecione...</option>
-                            <option value="Ótima">Ótima</option>
-                            <option value="Boa">Boa</option>
-                            <option value="Regular">Regular</option>
-                            <option value="Ruim">Ruim</option>
-                        </select>
+                        <label for="bairro">Bairro *</label>
+                        <input type="text" id="bairro" placeholder="Digite o bairro" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="doencasPreexistentes">Doenças Pré-existentes</label>
+                        <textarea id="doencasPreexistentes" rows="3" placeholder="Descreva as doenças pré-existentes (se houver)"></textarea>
                     </div>
                     
                     <button type="submit" class="btn-primary">
@@ -63,7 +62,7 @@
             <div class="card">
                 <h2><i class="fas fa-search"></i> Buscar Cadastros</h2>
                 <div class="search-container">
-                    <input type="text" id="searchInput" placeholder="Buscar por nome, CPF ou telefone...">
+                    <input type="text" id="searchInput" placeholder="Buscar por nome, CPF, telefone ou bairro...">
                     <button onclick="buscarCadastros()" class="btn-secondary">
                         <i class="fas fa-search"></i> Buscar
                     </button>
