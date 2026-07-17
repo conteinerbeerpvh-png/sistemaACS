@@ -1,104 +1,93 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Conexão com MongoDB
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/acs_cadastro';
+// Dados em memória
+let cadastros = [];
+let nextId = 1;
 
-mongoose.connect(MONGODB_URI)
-.then(() => console.log('✅ Conectado ao MongoDB'))
-.catch(err => {
-    console.error('❌ Erro ao conectar ao MongoDB:', err.message);
-    // Não para o servidor se não conectar
-});
-
-// Model
-const cadastroSchema = new mongoose.Schema({
-    nomeCompleto: { type: String, required: true },
-    dataNascimento: { type: Date, required: true },
-    endereco: { type: String, required: true },
-    comodidade: { type: String, required: true },
-    cpf: { type: String, required: true },
-    telefone: { type: String, required: true },
-    dataCadastro: { type: Date, default: Date.now }
-});
-
-const Cadastro = mongoose.model('Cadastro', cadastroSchema);
-
-// Rotas API
-app.post('/api/cadastros', async (req, res) => {
+// API Routes
+app.post('/api/cadastros', (req, res) => {
     try {
-        const cadastro = new Cadastro(req.body);
-        await cadastro.save();
+        const cadastro = {
+            _id: String(nextId++),
+            nomeCompleto: req.body.nomeCompleto,
+            dataNascimento: req.body.dataNascimento,
+            endereco: req.body.endereco,
+            comodidade: req.body.comodidade,
+            cpf: req.body.cpf,
+            telefone: req.body.telefone,
+            dataCadastro: new Date().toISOString()
+        };
+        cadastros.push(cadastro);
         res.status(201).json(cadastro);
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
 });
 
-app.get('/api/cadastros', async (req, res) => {
-    try {
-        const { search } = req.query;
-        let query = {};
-        if (search) {
-            query = {
-                $or: [
-                    { nomeCompleto: { $regex: search, $options: 'i' } },
-                    { cpf: { $regex: search, $options: 'i' } },
-                    { telefone: { $regex: search, $options: 'i' } }
-                ]
-            };
-        }
-        const cadastros = await Cadastro.find(query).sort({ dataCadastro: -1 });
-        res.json(cadastros);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+app.get('/api/cadastros', (req, res) => {
+    const { search } = req.query;
+    let result = cadastros;
+    
+    if (search) {
+        const term = search.toLowerCase();
+        result = cadastros.filter(c => 
+            c.nomeCompleto.toLowerCase().includes(term) ||
+            c.cpf.includes(search) ||
+            c.telefone.includes(search)
+        );
     }
+    
+    res.json(result.reverse());
 });
 
-app.get('/api/cadastros/:id', async (req, res) => {
-    try {
-        const cadastro = await Cadastro.findById(req.params.id);
-        if (!cadastro) return res.status(404).json({ message: 'Não encontrado' });
+app.get('/api/cadastros/:id', (req, res) => {
+    const cadastro = cadastros.find(c => c._id === req.params.id);
+    if (cadastro) {
         res.json(cadastro);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    } else {
+        res.status(404).json({ message: 'Cadastro não encontrado' });
     }
 });
 
-app.put('/api/cadastros/:id', async (req, res) => {
-    try {
-        const cadastro = await Cadastro.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        if (!cadastro) return res.status(404).json({ message: 'Não encontrado' });
-        res.json(cadastro);
-    } catch (error) {
-        res.status(400).json({ message: error.message });
+app.put('/api/cadastros/:id', (req, res) => {
+    const index = cadastros.findIndex(c => c._id === req.params.id);
+    if (index !== -1) {
+        cadastros[index] = { ...cadastros[index], ...req.body, _id: req.params.id };
+        res.json(cadastros[index]);
+    } else {
+        res.status(404).json({ message: 'Cadastro não encontrado' });
     }
 });
 
-app.delete('/api/cadastros/:id', async (req, res) => {
-    try {
-        await Cadastro.findByIdAndDelete(req.params.id);
-        res.json({ message: 'Excluído com sucesso' });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+app.delete('/api/cadastros/:id', (req, res) => {
+    const index = cadastros.findIndex(c => c._id === req.params.id);
+    if (index !== -1) {
+        cadastros.splice(index, 1);
+        res.json({ message: 'Cadastro excluído com sucesso' });
+    } else {
+        res.status(404).json({ message: 'Cadastro não encontrado' });
     }
 });
 
-// Rota principal
+// Serve frontend
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Health check
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date() });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
