@@ -20,7 +20,8 @@ app.post('/api/cadastros', (req, res) => {
             nomeCompleto: req.body.nomeCompleto,
             dataNascimento: req.body.dataNascimento,
             endereco: req.body.endereco,
-            comodidade: req.body.comodidade,
+            bairro: req.body.bairro,
+            doencasPreexistentes: req.body.doencasPreexistentes,
             cpf: req.body.cpf,
             telefone: req.body.telefone,
             dataCadastro: new Date().toISOString()
@@ -41,7 +42,8 @@ app.get('/api/cadastros', (req, res) => {
         result = cadastros.filter(c => 
             c.nomeCompleto.toLowerCase().includes(term) ||
             c.cpf.includes(search) ||
-            c.telefone.includes(search)
+            c.telefone.includes(search) ||
+            c.bairro.toLowerCase().includes(term)
         );
     }
     
