@@ -86,6 +86,15 @@ main {
     border-color: #667eea;
 }
 
+.form-row {
+    display: flex;
+    gap: 15px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
 .btn-primary {
     width: 100%;
     padding: 12px;
@@ -102,10 +111,25 @@ main {
     transform: translateY(-2px);
 }
 
+.btn-cancel {
+    padding: 12px 20px;
+    background: #95a5a6;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.form-buttons {
+    display: flex;
+    gap: 10px;
+}
+
 .search-container {
     display: flex;
     gap: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .search-container input {
@@ -113,6 +137,7 @@ main {
     padding: 10px;
     border: 2px solid #e0e0e0;
     border-radius: 8px;
+    font-size: 14px;
 }
 
 .btn-secondary {
@@ -122,12 +147,33 @@ main {
     border: none;
     border-radius: 8px;
     cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-clear {
+    padding: 10px 20px;
+    background: #95a5a6;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.stats-bar {
+    background: #f0f0f0;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    text-align: center;
+    color: #555;
 }
 
 .actions-bar {
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
+    flex-wrap: wrap;
 }
 
 .btn-pdf {
@@ -137,11 +183,31 @@ main {
     border: none;
     border-radius: 8px;
     cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-pdf:hover {
+    background: #c0392b;
 }
 
 .cadastros-list {
     max-height: 500px;
     overflow-y: auto;
+    padding-right: 5px;
+}
+
+.cadastros-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.cadastros-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.cadastros-list::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
 }
 
 .cadastro-item {
@@ -149,56 +215,105 @@ main {
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     margin-bottom: 10px;
-    transition: background-color 0.3s;
+    transition: all 0.3s;
 }
 
 .cadastro-item:hover {
     background-color: #f5f5f5;
+    border-color: #667eea;
 }
 
 .cadastro-item h3 {
     color: #333;
     margin-bottom: 8px;
+    font-size: 18px;
 }
 
 .cadastro-item p {
     color: #666;
     margin-bottom: 5px;
     font-size: 14px;
+    line-height: 1.4;
 }
 
 .cadastro-actions {
     margin-top: 10px;
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
 .btn-edit {
-    padding: 5px 15px;
+    padding: 6px 15px;
     background: #2196F3;
     color: white;
     border: none;
     border-radius: 5px;
     cursor: pointer;
+    font-size: 13px;
+}
+
+.btn-edit:hover {
+    background: #1976D2;
 }
 
 .btn-delete {
-    padding: 5px 15px;
+    padding: 6px 15px;
     background: #f44336;
     color: white;
     border: none;
     border-radius: 5px;
     cursor: pointer;
+    font-size: 13px;
+}
+
+.btn-delete:hover {
+    background: #d32f2f;
 }
 
 .btn-whatsapp {
-    padding: 5px 15px;
+    padding: 6px 15px;
     background: #25D366;
     color: white;
     border: none;
     border-radius: 5px;
     cursor: pointer;
+    font-size: 13px;
+}
+
+.btn-whatsapp:hover {
+    background: #1ebe57;
+}
+
+.btn-print {
+    padding: 6px 15px;
+    background: #ff9800;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.btn-print:hover {
+    background: #f57c00;
+}
+
+.loading {
+    text-align: center;
+    padding: 20px;
+    color: #999;
+}
+
+.loading i {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 @media (max-width: 768px) {
@@ -208,5 +323,13 @@ main {
     
     header h1 {
         font-size: 2rem;
+    }
+    
+    .form-row {
+        flex-direction: column;
+    }
+    
+    .search-container {
+        flex-direction: column;
     }
 }
