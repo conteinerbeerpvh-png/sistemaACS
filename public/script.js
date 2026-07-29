@@ -22,7 +22,22 @@ async function mensagemDaResposta(response) {
     return erro?.message || `Erro do servidor (HTTP ${response.status})`;
 }
 
-// Máscaras
+// =======================
+// MÁSCARAS
+// =======================
+
+// Máscara de Data de Nascimento (DD/MM/AAAA)
+function mascaraData(input) {
+    let valor = input.value.replace(/\D/g, ''); 
+    if (valor.length > 2 && valor.length <= 4) {
+        valor = valor.replace(/^(\d{2})(\d+)/, '$1/$2');
+    } else if (valor.length > 4) {
+        valor = valor.replace(/^(\d{2})(\d{2})(\d+)/, '$1/$2/$3');
+    }
+    input.value = valor;
+}
+
+// Máscara CPF
 document.getElementById('cpf').addEventListener('input', function(e) {
     let value = e.target.value.replace(/\D/g, '');
     if (value.length <= 11) {
@@ -33,6 +48,7 @@ document.getElementById('cpf').addEventListener('input', function(e) {
     e.target.value = value;
 });
 
+// Máscara Telefone
 document.getElementById('telefone').addEventListener('input', function(e) {
     let value = e.target.value.replace(/\D/g, '');
     if (value.length <= 11) {
@@ -42,11 +58,28 @@ document.getElementById('telefone').addEventListener('input', function(e) {
     e.target.value = value;
 });
 
-// Formatar data
+// =======================
+// FORMATAÇÃO DE DADOS
+// =======================
+
+// Formatar data para exibição (Evita problemas de fuso horário e exibe DD/MM/AAAA)
 function formatarData(data) {
     if (!data) return 'Não informada';
+    // Se a data já possuir barra, retorna como está
+    if (data.includes('/')) return data;
+    
+    // Converte de YYYY-MM-DD para DD/MM/AAAA
+    const dataLimpa = data.split('T')[0];
+    const partes = dataLimpa.split('-');
+    if (partes.length === 3) {
+        return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    }
     return new Date(data).toLocaleDateString('pt-BR');
 }
+
+// =======================
+// BUSCA E EXIBIÇÃO
+// =======================
 
 // Função principal de busca
 async function buscarCadastros() {
@@ -137,7 +170,7 @@ document.getElementById('cadastrosList').addEventListener('click', (event) => {
 
     const cadastro = cadastros.find((item) => item._id === botao.dataset.id);
     if (!cadastro) {
-        alert('Cadastro nao encontrado. Atualize a busca e tente novamente.');
+        alert('Cadastro não encontrado. Atualize a busca e tente novamente.');
         return;
     }
 
@@ -147,13 +180,28 @@ document.getElementById('cadastrosList').addEventListener('click', (event) => {
     if (botao.dataset.acao === 'whatsapp') enviarWhatsApp(cadastro.telefone, cadastro.nomeCompleto);
 });
 
+// =======================
+// AÇÕES DO FORMULÁRIO (SALVAR E EDITAR)
+// =======================
+
 // Salvar/Atualizar cadastro
 document.getElementById('cadastroForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
+    // Tratamento da data digitada (DD/MM/AAAA -> YYYY-MM-DD para o banco de dados)
+    let dataNascDigitada = document.getElementById('dataNascimento').value;
+    let dataNascFormatadaDB = dataNascDigitada;
+    
+    if (dataNascDigitada.includes('/')) {
+        const partesData = dataNascDigitada.split('/');
+        if (partesData.length === 3) {
+            dataNascFormatadaDB = `${partesData[2]}-${partesData[1]}-${partesData[0]}`;
+        }
+    }
+    
     const dados = {
         nomeCompleto: document.getElementById('nomeCompleto').value.trim(),
-        dataNascimento: document.getElementById('dataNascimento').value,
+        dataNascimento: dataNascFormatadaDB,
         cpf: document.getElementById('cpf').value.trim(),
         telefone: document.getElementById('telefone').value.trim(),
         endereco: document.getElementById('endereco').value.trim(),
@@ -163,8 +211,14 @@ document.getElementById('cadastroForm').addEventListener('submit', async functio
     };
     
     // Validação básica
-    if (!dados.nomeCompleto || !dados.dataNascimento || !dados.cpf || !dados.telefone || !dados.endereco || !dados.numero || !dados.bairro) {
+    if (!dados.nomeCompleto || !document.getElementById('dataNascimento').value || !dados.cpf || !dados.telefone || !dados.endereco || !dados.numero || !dados.bairro) {
         alert('Por favor, preencha todos os campos obrigatórios (*)');
+        return;
+    }
+    
+    // Validação da data completa
+    if (document.getElementById('dataNascimento').value.length < 10) {
+        alert('Por favor, digite a data de nascimento completa (DD/MM/AAAA)');
         return;
     }
     
@@ -217,9 +271,19 @@ function editarCadastro(id) {
     
     editandoId = id;
     
+    // Tratamento para jogar a data do banco (YYYY-MM-DD) no input como DD/MM/AAAA
+    let dataParaInput = '';
+    if (cadastro.dataNascimento) {
+        const dataLimpa = cadastro.dataNascimento.split('T')[0]; // Pega só a parte YYYY-MM-DD
+        const partes = dataLimpa.split('-');
+        if (partes.length === 3) {
+            dataParaInput = `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
+    }
+    
     // Preencher formulário
     document.getElementById('nomeCompleto').value = cadastro.nomeCompleto || '';
-    document.getElementById('dataNascimento').value = cadastro.dataNascimento ? cadastro.dataNascimento.split('T')[0] : '';
+    document.getElementById('dataNascimento').value = dataParaInput;
     document.getElementById('cpf').value = cadastro.cpf || '';
     document.getElementById('telefone').value = cadastro.telefone || '';
     document.getElementById('endereco').value = cadastro.endereco || '';
@@ -245,6 +309,10 @@ function cancelarEdicao() {
     document.getElementById('cancelBtn').style.display = 'none';
 }
 
+// =======================
+// EXCLUSÃO E INTEGRAÇÕES
+// =======================
+
 // Deletar cadastro
 async function deletarCadastro(id) {
     if (!confirm('Tem certeza que deseja excluir este cadastro?\nEsta ação não pode ser desfeita!')) {
@@ -267,6 +335,10 @@ async function deletarCadastro(id) {
         alert('❌ Erro de conexão');
     }
 }
+
+// =======================
+// PDF E IMPRESSÃO
+// =======================
 
 // Imprimir cadastro individual
 function imprimirCadastro(id) {
