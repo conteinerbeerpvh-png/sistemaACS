@@ -58,7 +58,8 @@ app.get('/api/cadastros', async (req, res) => {
     try {
         const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
         const query = search ? {
-            $or: ['nomeCompleto', 'cpf', 'telefone', 'bairro', 'endereco'].map((campo) => ({
+            // ADICIONADO 'doencasPreexistentes' NA LISTA DE BUSCA ABAIXO
+            $or: ['nomeCompleto', 'cpf', 'telefone', 'bairro', 'endereco', 'doencasPreexistentes'].map((campo) => ({
                 [campo]: { $regex: escapeRegex(search), $options: 'i' }
             }))
         } : {};
