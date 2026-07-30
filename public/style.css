@@ -1,335 +1,74 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-    padding: 20px;
-}
-
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-header {
-    text-align: center;
-    color: white;
-    margin-bottom: 30px;
-}
-
-header h1 {
-    font-size: 2.5rem;
-    margin-bottom: 10px;
-}
-
-header p {
-    font-size: 1.2rem;
-    opacity: 0.9;
-}
-
-main {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px;
-}
-
-.card {
-    background: white;
-    border-radius: 15px;
-    padding: 25px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-
-.card h2 {
-    color: #333;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.form-group {
-    margin-bottom: 15px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 5px;
-    color: #555;
-    font-weight: 500;
-}
-
-.form-group input,
-.form-group textarea {
-    width: 100%;
-    padding: 10px;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 14px;
-    transition: border-color 0.3s;
-    font-family: inherit;
-}
-
-.form-group textarea {
-    resize: vertical;
-    min-height: 80px;
-}
-
-.form-group input:focus,
-.form-group textarea:focus {
-    outline: none;
-    border-color: #667eea;
-}
-
-.form-row {
-    display: flex;
-    gap: 15px;
-}
-
-.form-row .form-group {
-    flex: 1;
-}
-
-.btn-primary {
-    width: 100%;
-    padding: 12px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-
-.btn-primary:hover {
-    transform: translateY(-2px);
-}
-
-.btn-cancel {
-    padding: 12px 20px;
-    background: #95a5a6;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.form-buttons {
-    display: flex;
-    gap: 10px;
-}
-
-.search-container {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-.search-container input {
-    flex: 1;
-    padding: 10px;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 14px;
-}
-
-.btn-secondary {
-    padding: 10px 20px;
-    background: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.btn-clear {
-    padding: 10px 20px;
-    background: #95a5a6;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.stats-bar {
-    background: #f0f0f0;
-    padding: 10px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-    text-align: center;
-    color: #555;
-}
-
-.actions-bar {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-}
-
-.btn-pdf {
-    padding: 10px 20px;
-    background: #e74c3c;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.btn-pdf:hover {
-    background: #c0392b;
-}
-
-.cadastros-list {
-    max-height: 500px;
-    overflow-y: auto;
-    padding-right: 5px;
-}
-
-.cadastros-list::-webkit-scrollbar {
-    width: 8px;
-}
-
-.cadastros-list::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-.cadastros-list::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-}
-
-.cadastro-item {
+/* =======================
+   ESTILOS DO OCR (SCAN DE FICHA)
+   ======================= */
+.ocr-section {
+    background: #f8fbff;
+    border: 2px dashed #90caf9;
+    border-radius: 10px;
     padding: 15px;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 25px;
     transition: all 0.3s;
 }
 
-.cadastro-item:hover {
-    background-color: #f5f5f5;
-    border-color: #667eea;
+.ocr-section:hover {
+    border-color: #2196F3;
+    background: #f0f7ff;
 }
 
-.cadastro-item h3 {
-    color: #333;
-    margin-bottom: 8px;
-    font-size: 18px;
-}
-
-.cadastro-item p {
-    color: #666;
+.ocr-section label {
+    color: #1976D2;
+    font-weight: 600;
+    font-size: 16px;
+    display: block;
     margin-bottom: 5px;
-    font-size: 14px;
-    line-height: 1.4;
 }
 
-.cadastro-actions {
-    margin-top: 10px;
+.ocr-help {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.ocr-container {
     display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
 }
 
-.btn-edit {
-    padding: 6px 15px;
+.ocr-container input[type="file"] {
+    flex: 1;
+    padding: 8px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.btn-scan {
+    padding: 10px 15px;
     background: #2196F3;
     color: white;
     border: none;
-    border-radius: 5px;
+    border-radius: 6px;
     cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    transition: background 0.3s;
+    white-space: nowrap;
+}
+
+.btn-scan:hover {
+    background: #1565C0;
+}
+
+.btn-scan:disabled {
+    background: #90caf9;
+    cursor: not-allowed;
+}
+
+.scan-status {
+    display: none;
+    margin-top: 10px;
     font-size: 13px;
-}
-
-.btn-edit:hover {
-    background: #1976D2;
-}
-
-.btn-delete {
-    padding: 6px 15px;
-    background: #f44336;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 13px;
-}
-
-.btn-delete:hover {
-    background: #d32f2f;
-}
-
-.btn-whatsapp {
-    padding: 6px 15px;
-    background: #25D366;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 13px;
-}
-
-.btn-whatsapp:hover {
-    background: #1ebe57;
-}
-
-.btn-print {
-    padding: 6px 15px;
-    background: #ff9800;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 13px;
-}
-
-.btn-print:hover {
-    background: #f57c00;
-}
-
-.loading {
-    text-align: center;
-    padding: 20px;
-    color: #999;
-}
-
-.loading i {
-    font-size: 2rem;
-    margin-bottom: 10px;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-@media (max-width: 768px) {
-    main {
-        grid-template-columns: 1fr;
-    }
-    
-    header h1 {
-        font-size: 2rem;
-    }
-    
-    .form-row {
-        flex-direction: column;
-    }
-    
-    .search-container {
-        flex-direction: column;
-    }
+    font-weight: 500;
 }

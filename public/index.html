@@ -20,6 +20,20 @@
                 <form id="cadastroForm">
                     <input type="hidden" id="editId">
                     
+                    <!-- NOVA SESSÃO: ESCANEAR FICHA -->
+                    <div class="ocr-section">
+                        <label for="fichaUpload"><i class="fas fa-camera"></i> Escanear Ficha de Papel (Foto)</label>
+                        <p class="ocr-help">Tire uma foto da ficha. A IA tentará preencher os dados sozinha.</p>
+                        <div class="ocr-container">
+                            <input type="file" id="fichaUpload" accept="image/*">
+                            <button type="button" id="btnScan" class="btn-scan" onclick="escanearFicha()">
+                                <i class="fas fa-magic"></i> Preencher Auto
+                            </button>
+                        </div>
+                        <small id="scanStatus" class="scan-status"></small>
+                    </div>
+                    <!-- FIM DA SESSÃO ESCANEAR FICHA -->
+                    
                     <div class="form-group">
                         <label for="nomeCompleto">Nome Completo *</label>
                         <input type="text" id="nomeCompleto" required placeholder="Digite o nome completo">
@@ -28,7 +42,6 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="dataNascimento">Data de Nascimento *</label>
-                            <!-- Alterado de type="date" para type="tel" com formatação automática -->
                             <input type="tel" id="dataNascimento" placeholder="DD/MM/AAAA" maxlength="10" required oninput="mascaraData(this)">
                         </div>
                         
@@ -109,6 +122,6 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="script.js?v=3"></script>
+    <script src="script.js?v=4"></script>
 </body>
 </html>
