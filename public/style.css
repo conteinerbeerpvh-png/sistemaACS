@@ -316,24 +316,6 @@ main {
     100% { transform: rotate(360deg); }
 }
 
-@media (max-width: 768px) {
-    main {
-        grid-template-columns: 1fr;
-    }
-    
-    header h1 {
-        font-size: 2rem;
-    }
-    
-    .form-row {
-        flex-direction: column;
-    }
-    
-    .search-container {
-        flex-direction: column;
-    }
-}
-
 /* =======================
    ESTILOS DO OCR (SCAN DE FICHA)
    ======================= */
@@ -407,4 +389,83 @@ main {
     margin-top: 10px;
     font-size: 13px;
     font-weight: 500;
+}
+
+/* =======================
+   RESPONSIVIDADE (TABLETS E CELULARES)
+   ======================= */
+
+/* Telas médias (Tablets) */
+@media (max-width: 992px) {
+    main {
+        grid-template-columns: 1fr; /* Coloca os cards um embaixo do outro */
+    }
+}
+
+/* Telas pequenas (Celulares) */
+@media (max-width: 768px) {
+    body {
+        padding: 10px; /* Reduz as bordas laterais para aproveitar a tela */
+    }
+
+    header h1 {
+        font-size: 1.8rem;
+    }
+    
+    .card {
+        padding: 15px; /* Caixas um pouco menores */
+    }
+    
+    .form-row {
+        flex-direction: column; /* Empilha campos como Data e CPF */
+        gap: 0;
+    }
+    
+    .search-container {
+        flex-direction: column; /* Empilha a barra de busca e botões */
+    }
+    
+    .search-container button {
+        width: 100%; /* Botão de busca ocupa toda a largura */
+    }
+
+    .ocr-container {
+        flex-direction: column; /* Empilha botão de arquivo e botão de ler */
+        align-items: stretch;
+    }
+
+    .ocr-container input[type="file"] {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    .btn-scan {
+        width: 100%; /* Botão de IA ocupa toda a largura */
+    }
+    
+    .form-buttons {
+        flex-direction: column; /* Empilha botão de Salvar e Cancelar */
+    }
+    
+    .btn-cancel {
+        width: 100%;
+    }
+
+    .actions-bar {
+        flex-direction: column; /* Empilha botões de PDF */
+    }
+
+    .actions-bar button {
+        width: 100%;
+    }
+
+    .cadastro-actions {
+        flex-direction: column; /* Empilha os botões do card de paciente (Editar, WhatsApp, Excluir) */
+        gap: 5px;
+    }
+    
+    .cadastro-actions button {
+        width: 100%;
+        padding: 10px; /* Fica mais fácil de apertar com o dedo */
+    }
 }
