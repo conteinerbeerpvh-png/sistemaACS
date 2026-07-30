@@ -22,10 +22,10 @@
                     
                     <!-- NOVA SESSÃO: ESCANEAR FICHA -->
                     <div class="ocr-section">
-                        <label for="fichaUpload"><i class="fas fa-camera"></i> Escanear Ficha de Papel (Foto)</label>
-                        <p class="ocr-help">Tire uma foto da ficha. A IA tentará preencher os dados sozinha.</p>
+                        <label for="fichaUpload"><i class="fas fa-camera"></i> Escanear Ficha de Papel (Foto ou PDF)</label>
+                        <p class="ocr-help">Tire uma foto ou selecione um arquivo/PDF da ficha. A IA tentará preencher os dados sozinha.</p>
                         <div class="ocr-container">
-                            <input type="file" id="fichaUpload" accept="image/*">
+                            <input type="file" id="fichaUpload" accept="image/*,application/pdf">
                             <button type="button" id="btnScan" class="btn-scan" onclick="escanearFicha()">
                                 <i class="fas fa-magic"></i> Preencher Auto
                             </button>
