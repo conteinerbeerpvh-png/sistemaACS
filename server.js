@@ -21,7 +21,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 mongoose.connect(MONGODB_URI).then(async () => {
-    // Remove o índice antigo de CPF único global, permitindo que cada conta tenha a própria lista.
     try { await Cadastro.collection.dropIndex('cpf_1'); console.log('Índice antigo de CPF removido.'); }
     catch (error) { if (error.codeName !== 'IndexNotFound') console.warn('Não foi possível remover o índice antigo de CPF:', error.message); }
     console.log('MongoDB connected');
@@ -36,11 +35,10 @@ function tokenPara(usuario) {
     return jwt.sign({ id: String(usuario._id), nome: usuario.nome, usuario: usuario.usuario }, JWT_SECRET, { expiresIn: '12h' });
 }
 function respostaDeLogin(res, usuario) {
-    // Envia somente valores simples; evita serialização de documentos do Mongoose na resposta de sucesso.
-    return res.status(200).type('application/json').send(JSON.stringify({
+    return res.status(200).json({
         token: tokenPara(usuario),
-        usuario: { nome: String(usuario.nome), usuario: String(usuario.usuario) }
-    }));
+        usuario: { nome: usuario.nome, usuario: usuario.usuario }
+    });
 }
 function autenticar(req, res, next) {
     const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
@@ -48,14 +46,16 @@ function autenticar(req, res, next) {
     try { req.usuario = jwt.verify(token, JWT_SECRET); next(); }
     catch (_) { return res.status(401).json({ message: 'Sua sessão expirou. Faça login novamente.' }); }
 }
+
+// CORREÇÃO: Adicionado acamado, domiciliado e outrasDoencas para o banco não ignorar os dados
 function dadosDoCadastro(body) {
     const doencasPermitidas = ['Hipertensão', 'Diabetes', 'Tuberculose', 'Hanseníase', 'Câncer', 'Asma', 'HIV'];
     return {
         nomeCompleto: body.nomeCompleto?.trim(), dataNascimento: body.dataNascimento, endereco: body.endereco?.trim(),
         numero: body.numero?.trim(), bairro: body.bairro?.trim(), cpf: body.cpf?.trim(), telefone: body.telefone?.trim(),
         criancaDeZeroANove: body.criancaDeZeroANove === true, sexo: body.sexo, gestante: body.gestante === true,
-        doencasPreexistentes: Array.isArray(body.doencasPreexistentes) ? body.doencasPreexistentes.filter(item => doencasPermitidas.includes(item)) : [],
-        outrasDoencas: body.outrasDoencas?.trim() || ''
+        acamado: body.acamado === true, domiciliado: body.domiciliado === true, outrasDoencas: body.outrasDoencas?.trim(),
+        doencasPreexistentes: Array.isArray(body.doencasPreexistentes) ? body.doencasPreexistentes.filter(item => doencasPermitidas.includes(item)) : []
     };
 }
 async function migrarCadastrosDaDiana(usuario) {
@@ -81,7 +81,6 @@ app.post('/api/auth/login', async (req, res) => {
     try {
         const usuario = await Usuario.findOne({ usuario: req.body.usuario?.trim().toLowerCase() });
         if (!usuario || !(await bcrypt.compare(req.body.senha || '', usuario.senhaHash))) return res.status(401).json({ message: 'Usuário ou senha inválidos.' });
-        // A migração dos cadastros antigos ocorre somente na rota de listagem, após o login.
         respostaDeLogin(res, usuario);
     } catch (error) {
         console.error('Erro no login:', error);
@@ -103,7 +102,7 @@ app.post('/api/cadastros', autenticar, async (req, res) => {
     catch (error) { res.status(error.code === 11000 ? 409 : 400).json({ message: error.code === 11000 ? 'CPF já cadastrado na sua lista.' : error.message }); }
 });
 app.get('/api/cadastros', autenticar, async (req, res) => {
-    try { await migrarCadastrosDaDiana(req.usuario); const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''; const query = { usuarioId: req.usuario.id }; if (search) query.$or = ['nomeCompleto', 'cpf', 'telefone', 'bairro', 'endereco', 'doencasPreexistentes', 'outrasDoencas'].map(campo => ({ [campo]: { $regex: escapeRegex(search), $options: 'i' } })); res.json(await Cadastro.find(query).sort({ dataCadastro: -1 })); }
+    try { await migrarCadastrosDaDiana(req.usuario); const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''; const query = { usuarioId: req.usuario.id }; if (search) query.$or = ['nomeCompleto', 'cpf', 'telefone', 'bairro', 'endereco', 'doencasPreexistentes'].map(campo => ({ [campo]: { $regex: escapeRegex(search), $options: 'i' } })); res.json(await Cadastro.find(query).sort({ dataCadastro: -1 })); }
     catch (error) { res.status(500).json({ message: error.message }); }
 });
 app.get('/api/cadastros/:id', autenticar, async (req, res) => { try { const cadastro = await Cadastro.findOne({ _id: req.params.id, usuarioId: req.usuario.id }); if (!cadastro) return res.status(404).json({ message: 'Cadastro não encontrado.' }); res.json(cadastro); } catch (_) { res.status(400).json({ message: 'ID inválido.' }); } });
