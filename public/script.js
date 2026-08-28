@@ -23,7 +23,7 @@ async function mensagem(response) { return (await response.json().catch(() => ({
 function mostrarApp() { 
   $('authMensagem').textContent = ''; 
   $('authScreen').hidden = true; 
-  $('authScreen').style.display = 'none'; // Força a ocultação sobrepondo o display: grid do CSS
+  $('authScreen').style.display = 'none'; 
   $('appScreen').hidden = false; 
   $('appScreen').style.display = 'block'; 
   $('usuarioLogado').textContent = `Olá, ${usuario.nome}`; 
@@ -38,7 +38,7 @@ function sair() {
   $('appScreen').hidden = true; 
   $('appScreen').style.display = 'none'; 
   $('authScreen').hidden = false; 
-  $('authScreen').style.display = ''; // Devolve o controle para o display: grid do CSS
+  $('authScreen').style.display = ''; 
   $('loginForm').reset(); 
 }
 
@@ -65,5 +65,124 @@ function editarCadastro(id) { const c = cadastros.find(item => item._id === id);
 function cancelarEdicao() { editandoId = null; $('cadastroForm').reset(); $('formTitle').textContent = 'Novo Cadastro'; $('cancelBtn').hidden = true; }
 async function excluirCadastro(id) { if (!confirm('Excluir este cadastro?')) return; const response = await requisicao(`/api/cadastros/${id}`, { method: 'DELETE' }); if (!response.ok) return alert(await mensagem(response)); buscarCadastros(); }
 $('cancelBtn').addEventListener('click', cancelarEdicao); $('buscarBtn').addEventListener('click', buscarCadastros); $('limparBtn').addEventListener('click', () => { $('searchInput').value = ''; buscarCadastros(); }); $('searchInput').addEventListener('keydown', event => { if (event.key === 'Enter') buscarCadastros(); });
-$('btnScan').addEventListener('click', async () => { const file = $('fichaUpload').files[0]; if (!file) return alert('Selecione uma ficha.'); const formData = new FormData(); formData.append('ficha', file); const response = await requisicao('/api/scan', { method: 'POST', body: formData }); if (!response.ok) return $('scanStatus').textContent = await mensagem(response); const dados = await response.json(); ['nomeCompleto','cpf','telefone','dataNascimento','endereco','numero','bairro'].forEach(id => { if (dados[id]) $(id).value = dados[id]; }); mascaraData(); mascaraCpf(); mascaraTelefone(); $('scanStatus').textContent = 'Leitura concluída. Revise os dados antes de salvar.'; });
+
+// ==========================================
+// FUNÇÃO DE PREENCHIMENTO POR VOZ
+// ==========================================
+const btnVoz = $('btnScan');
+if (btnVoz) {
+    // Ajusta o botão e esconde o input de arquivo (sem precisar editar o HTML)
+    btnVoz.innerHTML = '<i class="fas fa-microphone"></i> Preencher por voz';
+    if ($('fichaUpload')) {
+        $('fichaUpload').style.display = 'none';
+        const labelFicha = document.querySelector('label[for="fichaUpload"]');
+        if (labelFicha) labelFicha.innerHTML = '<i class="fas fa-microphone"></i> Dite os dados do paciente';
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'pt-BR';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            $('scanStatus').textContent = 'Ouvindo... Pode falar.';
+            $('scanStatus').style.display = 'block';
+            $('scanStatus').style.color = '#e74c3c';
+            btnVoz.style.background = '#e74c3c';
+            btnVoz.innerHTML = '<i class="fas fa-record-vinyl"></i> Gravando...';
+        };
+
+        recognition.onresult = (event) => {
+            const fala = event.results[0][0].transcript.toLowerCase();
+            $('scanStatus').textContent = 'Processando texto...';
+            $('scanStatus').style.color = '#1976D2';
+
+            const extrair = (regex) => {
+                const match = fala.match(regex);
+                return match ? match[1].trim() : '';
+            };
+
+            const nomeMatch = fala.match(/nome\s+completo\s+(.*?)(?=\s+data|\s+cpf|\s+telefone|\s+sexo|\s+criança|\s+gestante|\s+endereço|\s+bairro|$)/i);
+            if (nomeMatch) $('nomeCompleto').value = nomeMatch[1].replace(/(^\w|\s\w)/g, m => m.toUpperCase());
+
+            const dataMatch = extrair(/data de nascimento\s+([\d/]+|.*?(?=\s+cpf|\s+telefone|\s+sexo|\s+criança|\s+gestante|\s+endereço|\s+bairro|$))/i);
+            if (dataMatch) {
+                $('dataNascimento').value = dataMatch.replace(/[^\d]/g, '');
+                mascaraData();
+            }
+
+            const cpfMatch = extrair(/cpf\s+([\d.-]+|.*?(?=\s+telefone|\s+sexo|\s+criança|\s+gestante|\s+endereço|\s+bairro|$))/i);
+            if (cpfMatch) {
+                $('cpf').value = cpfMatch.replace(/[^\d]/g, '');
+                mascaraCpf();
+            }
+
+            const telefoneMatch = extrair(/telefone\s+([\d\s()-]+|.*?(?=\s+sexo|\s+criança|\s+gestante|\s+endereço|\s+bairro|$))/i);
+            if (telefoneMatch) {
+                $('telefone').value = telefoneMatch.replace(/[^\d]/g, '');
+                mascaraTelefone();
+            }
+
+            if (fala.includes('sexo masculino') || fala.includes('masculino')) {
+                $('sexo').value = 'M';
+            } else if (fala.includes('sexo feminino') || fala.includes('feminino')) {
+                $('sexo').value = 'F';
+            }
+
+            if (fala.includes('não sou criança') || fala.includes('não é criança')) {
+                $('criancaDeZeroANove').value = 'false';
+            } else if (fala.includes('sou criança') || fala.match(/é criança\s+sim/)) {
+                $('criancaDeZeroANove').value = 'true';
+            }
+
+            if (fala.includes('não sou gestante') || fala.includes('não é gestante')) {
+                $('gestante').value = 'false';
+            } else if (fala.includes('sou gestante') || fala.match(/é gestante\s+sim/)) {
+                $('gestante').value = 'true';
+            }
+
+            const enderecoMatch = fala.match(/endereço\s+(.*?)(?=\s+número|\s+bairro|$)/i);
+            if (enderecoMatch) $('endereco').value = enderecoMatch[1].replace(/(^\w|\s\w)/g, m => m.toUpperCase());
+
+            const numeroMatch = fala.match(/número\s+(\d+)/i);
+            if (numeroMatch) $('numero').value = numeroMatch[1];
+
+            const bairroMatch = fala.match(/bairro\s+(.*?)(?=\s+doença|$)/i);
+            if (bairroMatch) $('bairro').value = bairroMatch[1].replace(/(^\w|\s\w)/g, m => m.toUpperCase());
+
+            $('scanStatus').textContent = 'Preenchimento concluído! Revise os dados.';
+            $('scanStatus').style.color = '#4CAF50';
+            
+            btnVoz.innerHTML = '<i class="fas fa-microphone"></i> Preencher por voz';
+            btnVoz.style.background = '';
+        };
+
+        recognition.onerror = (event) => {
+            $('scanStatus').textContent = 'Erro ao ouvir: tente novamente.';
+            $('scanStatus').style.color = '#c0392b';
+            btnVoz.innerHTML = '<i class="fas fa-microphone"></i> Preencher por voz';
+            btnVoz.style.background = '';
+        };
+
+        recognition.onend = () => {
+            if (btnVoz.textContent.includes('Gravando')) {
+                btnVoz.innerHTML = '<i class="fas fa-microphone"></i> Preencher por voz';
+                btnVoz.style.background = '';
+            }
+        };
+
+        btnVoz.addEventListener('click', () => {
+            try { recognition.start(); } catch (e) {} 
+        });
+
+    } else {
+        $('scanStatus').textContent = 'Seu navegador não suporta comando de voz.';
+        $('scanStatus').style.display = 'block';
+        $('scanStatus').style.color = '#c0392b';
+        btnVoz.disabled = true;
+    }
+}
+
 if (token && usuario) mostrarApp();
