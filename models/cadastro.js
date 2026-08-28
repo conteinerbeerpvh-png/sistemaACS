@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const cadastroSchema = new mongoose.Schema({
+    usuarioId: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true, index: true },
     nomeCompleto: {
         type: String,
         required: true
@@ -21,14 +22,14 @@ const cadastroSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    doencasPreexistentes: {
-        type: String,
-        default: 'Nenhuma'
-    },
+    criancaDeZeroANove: { type: Boolean, required: true },
+    sexo: { type: String, enum: ['M', 'F'], required: true },
+    gestante: { type: Boolean, required: true },
+    doencasPreexistentes: [{ type: String, enum: ['Hipertensão', 'Diabetes', 'Tuberculose', 'Hanseníase', 'Câncer', 'Asma', 'HIV'] }],
     cpf: {
         type: String,
         required: true,
-        unique: true
+        required: true
     },
     telefone: {
         type: String,
@@ -39,5 +40,7 @@ const cadastroSchema = new mongoose.Schema({
         default: Date.now
     }
 });
+
+cadastroSchema.index({ usuarioId: 1, cpf: 1 }, { unique: true });
 
 module.exports = mongoose.model('Cadastro', cadastroSchema);

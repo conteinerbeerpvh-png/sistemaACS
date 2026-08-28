@@ -17,6 +17,10 @@ body {
 }
 
 header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
     text-align: center;
     color: white;
     margin-bottom: 30px;
@@ -65,7 +69,8 @@ main {
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
     width: 100%;
     padding: 10px;
     border: 2px solid #e0e0e0;
@@ -81,10 +86,23 @@ main {
 }
 
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group select:focus {
     outline: none;
     border-color: #667eea;
 }
+
+.auth-screen { min-height: 100vh; display: grid; place-items: center; }
+.auth-card { background: white; width: min(100%, 420px); padding: 32px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+.auth-card h1 { color: #667eea; margin-bottom: 10px; text-align: center; }
+.auth-card > p { color: #555; margin-bottom: 20px; text-align: center; }
+.link-button { color: #4f62c8; background: transparent; border: 0; cursor: pointer; display: block; margin: 18px auto 0; font-size: 14px; }
+.mensagem { color: #c0392b !important; min-height: 20px; margin: 10px 0 0 !important; }
+.user-menu { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.user-menu span { font-weight: 600; }
+.doencas { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 10px 16px; color: #555; }
+.doencas legend { padding: 0 5px; font-weight: 600; }
+.doencas label { cursor: pointer; }
 
 .form-row {
     display: flex;
@@ -404,6 +422,7 @@ main {
 
 /* Telas pequenas (Celulares) */
 @media (max-width: 768px) {
+    header { flex-direction: column; }
     body {
         padding: 10px; /* Reduz as bordas laterais para aproveitar a tela */
     }
