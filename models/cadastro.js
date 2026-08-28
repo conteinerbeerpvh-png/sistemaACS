@@ -26,6 +26,7 @@ const cadastroSchema = new mongoose.Schema({
     sexo: { type: String, enum: ['M', 'F'], required: true },
     gestante: { type: Boolean, required: true },
     doencasPreexistentes: [{ type: String, enum: ['Hipertensão', 'Diabetes', 'Tuberculose', 'Hanseníase', 'Câncer', 'Asma', 'HIV'] }],
+    outrasDoencas: { type: String, trim: true, default: '' },
     cpf: {
         type: String,
         required: true
