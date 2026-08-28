@@ -77,9 +77,88 @@ function formatarData(data) { if (!data) return 'Não informada'; const [ano, me
 function valorBooleano(id) { return $(id).value === 'true'; }
 function dadosFormulario() { const [dia, mes, ano] = $('dataNascimento').value.split('/'); return { nomeCompleto: $('nomeCompleto').value.trim(), dataNascimento: `${ano}-${mes}-${dia}`, cpf: $('cpf').value.trim(), telefone: $('telefone').value.trim(), endereco: $('endereco').value.trim(), numero: $('numero').value.trim(), bairro: $('bairro').value.trim(), sexo: $('sexo').value, criancaDeZeroANove: valorBooleano('criancaDeZeroANove'), gestante: valorBooleano('gestante'), doencasPreexistentes: [...document.querySelectorAll('input[name="doenca"]:checked')].map(item => item.value), outrasDoencas: $('outrasDoencas').value.trim() }; }
 async function buscarCadastros() { const search = $('searchInput').value.trim(); $('cadastrosList').innerHTML = '<p class="loading">Carregando...</p>'; const response = await requisicao(`/api/cadastros${search ? `?search=${encodeURIComponent(search)}` : ''}`); if (!response.ok) { $('cadastrosList').textContent = await mensagem(response); return; } cadastros = await response.json(); $('statsBar').hidden = false; $('resultCount').textContent = `Total: ${cadastros.length} cadastro(s)`; exibirCadastros(); }
-function exibirCadastros() { if (!cadastros.length) { $('cadastrosList').innerHTML = '<p class="loading">Nenhum cadastro encontrado.</p>'; return; } $('cadastrosList').innerHTML = cadastros.map(c => { const doencas = [...(c.doencasPreexistentes || []), c.outrasDoencas].filter(Boolean).join(', ') || 'Nenhuma'; return `<article class="cadastro-item"><h3><i class="fas fa-user"></i> ${texto(c.nomeCompleto)}</h3><p><strong>CPF:</strong> ${texto(c.cpf)}</p><p><strong>Telefone:</strong> ${texto(c.telefone)}</p><p><strong>Sexo:</strong> ${c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : 'Não informado'} · <strong>Criança 0–9:</strong> ${c.criancaDeZeroANove ? 'Sim' : 'Não'} · <strong>Gestante:</strong> ${c.gestante ? 'Sim' : 'Não'}</p><p><strong>Endereço:</strong> ${texto(c.endereco)}, Nº ${texto(c.numero)} — ${texto(c.bairro)}</p><p><strong>Doenças:</strong> ${texto(doencas)}</p><p><strong>Nascimento:</strong> ${formatarData(c.dataNascimento)}</p><div class="cadastro-actions"><button class="btn-edit" data-editar="${c._id}">Editar</button><button class="btn-print" data-imprimir="${c._id}">Imprimir</button><button class="btn-delete" data-excluir="${c._id}">Excluir</button></div></article>`; }).join(''); }
-$('cadastrosList').addEventListener('click', event => { const id = event.target.dataset.editar || event.target.dataset.excluir || event.target.dataset.imprimir; if (!id) return; if (event.target.dataset.editar) editarCadastro(id); else if (event.target.dataset.imprimir) imprimirCadastro(id); else excluirCadastro(id); });
-function imprimirCadastro(id) { const c = cadastros.find(item => item._id === id); if (!c) return; const janela = window.open('', '_blank'); if (!janela) return alert('Permita pop-ups para imprimir.'); janela.document.write(`<!doctype html><html><head><title>Cadastro - ${texto(c.nomeCompleto)}</title><style>@page{size:A4;margin:15mm}body{font-family:Arial,sans-serif;color:#222}.ficha{max-width:180mm;margin:auto}h1{color:#4f62c8;margin-bottom:3mm}h2{border-bottom:2px solid #667eea;padding-bottom:3mm}.linha{margin:5mm 0;font-size:12pt}.rodape{margin-top:15mm;font-size:9pt;color:#666}</style></head><body><main class="ficha"><h1>ACS Cadastro</h1><p>Ficha de Cadastro Individual</p><h2>${texto(c.nomeCompleto)}</h2><p class="linha"><b>CPF:</b> ${texto(c.cpf)}</p><p class="linha"><b>Telefone:</b> ${texto(c.telefone)}</p><p class="linha"><b>Data de nascimento:</b> ${formatarData(c.dataNascimento)}</p><p class="linha"><b>Sexo:</b> ${c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : 'Não informado'}</p><p class="linha"><b>Criança de 0 a 9 anos:</b> ${c.criancaDeZeroANove ? 'Sim' : 'Não'}</p><p class="linha"><b>Gestante:</b> ${c.gestante ? 'Sim' : 'Não'}</p><p class="linha"><b>Endereço:</b> ${texto(c.endereco)}, Nº ${texto(c.numero)} — ${texto(c.bairro)}</p><p class="linha"><b>Doenças pré-existentes:</b> ${texto((c.doencasPreexistentes || []).join(', ') || 'Nenhuma')}</p><p class="rodape">Gerado em ${new Date().toLocaleString('pt-BR')}</p></main></body></html>`); janela.document.close(); janela.onload = () => janela.print(); }
+
+function imprimirVarios(listaParaImprimir) {
+    if (!listaParaImprimir || listaParaImprimir.length === 0) return alert('Nenhum cadastro para exportar.');
+    const janela = window.open('', '_blank');
+    if (!janela) return alert('Permita pop-ups para imprimir.');
+    
+    let html = `<!doctype html><html><head><title>Exportar Cadastros ACS</title><style>@page{size:A4;margin:15mm}body{font-family:Arial,sans-serif;color:#222}.ficha{max-width:180mm;margin:auto; page-break-after: always;}h1{color:#4f62c8;margin-bottom:3mm}h2{border-bottom:2px solid #667eea;padding-bottom:3mm}.linha{margin:5mm 0;font-size:12pt}.rodape{margin-top:15mm;font-size:9pt;color:#666}</style></head><body>`;
+    
+    listaParaImprimir.forEach(c => {
+        const doencas = [...(c.doencasPreexistentes || []), c.outrasDoencas].filter(Boolean).join(', ') || 'Nenhuma';
+        html += `<main class="ficha"><h1>ACS Cadastro</h1><p>Ficha de Cadastro Individual</p><h2>${texto(c.nomeCompleto)}</h2><p class="linha"><b>CPF:</b> ${texto(c.cpf)}</p><p class="linha"><b>Telefone:</b> ${texto(c.telefone)}</p><p class="linha"><b>Data de nascimento:</b> ${formatarData(c.dataNascimento)}</p><p class="linha"><b>Sexo:</b> ${c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : 'Não informado'}</p><p class="linha"><b>Criança de 0 a 9 anos:</b> ${c.criancaDeZeroANove ? 'Sim' : 'Não'}</p><p class="linha"><b>Gestante:</b> ${c.gestante ? 'Sim' : 'Não'}</p><p class="linha"><b>Endereço:</b> ${texto(c.endereco)}, Nº ${texto(c.numero)} — ${texto(c.bairro)}</p><p class="linha"><b>Doenças pré-existentes:</b> ${texto(doencas)}</p><p class="rodape">Gerado em ${new Date().toLocaleString('pt-BR')}</p></main>`;
+    });
+    
+    html += `</body></html>`;
+    janela.document.write(html); 
+    janela.document.close(); 
+    janela.onload = () => janela.print();
+}
+
+function exibirCadastros() { 
+    if (!cadastros.length) { 
+        $('cadastrosList').innerHTML = '<p class="loading">Nenhum cadastro encontrado.</p>'; 
+        return; 
+    } 
+
+    const barraFerramentas = `
+        <div class="actions-bar" style="margin-bottom: 15px; display: flex; gap: 10px;">
+            <button id="btnExportarTodos" class="btn-pdf"><i class="fas fa-file-pdf"></i> Exportar Todos</button>
+            <button id="btnExportarSelecionados" class="btn-pdf"><i class="fas fa-check-square"></i> Exportar Selecionados</button>
+        </div>
+    `;
+
+    const listaHtml = cadastros.map(c => { 
+        const doencas = [...(c.doencasPreexistentes || []), c.outrasDoencas].filter(Boolean).join(', ') || 'Nenhuma'; 
+        return `<article class="cadastro-item">
+            <h3 style="display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" class="chk-exportar" value="${c._id}" style="transform: scale(1.3); cursor: pointer;">
+                <i class="fas fa-user"></i> ${texto(c.nomeCompleto)}
+            </h3>
+            <p><strong>CPF:</strong> ${texto(c.cpf)}</p>
+            <p><strong>Telefone:</strong> ${texto(c.telefone)}</p>
+            <p><strong>Sexo:</strong> ${c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : 'Não informado'} · <strong>Criança 0–9:</strong> ${c.criancaDeZeroANove ? 'Sim' : 'Não'} · <strong>Gestante:</strong> ${c.gestante ? 'Sim' : 'Não'}</p>
+            <p><strong>Endereço:</strong> ${texto(c.endereco)}, Nº ${texto(c.numero)} — ${texto(c.bairro)}</p>
+            <p><strong>Doenças:</strong> ${texto(doencas)}</p>
+            <p><strong>Nascimento:</strong> ${formatarData(c.dataNascimento)}</p>
+            <div class="cadastro-actions">
+                <button class="btn-edit" data-editar="${c._id}"><i class="fas fa-edit"></i> Editar</button>
+                <button class="btn-whatsapp" data-whatsapp="${c.telefone}" data-nome="${texto(c.nomeCompleto)}"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                <button class="btn-print" data-imprimir="${c._id}"><i class="fas fa-print"></i> Imprimir</button>
+                <button class="btn-delete" data-excluir="${c._id}"><i class="fas fa-trash"></i> Excluir</button>
+            </div>
+        </article>`; 
+    }).join(''); 
+
+    $('cadastrosList').innerHTML = barraFerramentas + listaHtml; 
+
+    $('btnExportarTodos').addEventListener('click', () => imprimirVarios(cadastros));
+    $('btnExportarSelecionados').addEventListener('click', () => {
+        const selecionadosIds = Array.from(document.querySelectorAll('.chk-exportar:checked')).map(chk => chk.value);
+        if (selecionadosIds.length === 0) return alert('Marque a caixinha ao lado do nome dos pacientes que deseja exportar.');
+        const filtrados = cadastros.filter(c => selecionadosIds.includes(c._id));
+        imprimirVarios(filtrados);
+    });
+}
+
+$('cadastrosList').addEventListener('click', event => { 
+    // Garante que o clique funcione mesmo se o usuário clicar no ícone dentro do botão
+    const btn = event.target.closest('button');
+    if (!btn) return;
+
+    const id = btn.dataset.editar || btn.dataset.excluir || btn.dataset.imprimir; 
+    
+    if (btn.dataset.editar) editarCadastro(btn.dataset.editar); 
+    else if (btn.dataset.imprimir) imprimirVarios([cadastros.find(c => c._id === btn.dataset.imprimir)]); 
+    else if (btn.dataset.excluir) excluirCadastro(btn.dataset.excluir); 
+    else if (btn.dataset.whatsapp) {
+        const numero = btn.dataset.whatsapp.replace(/\D/g, '');
+        if (numero.length < 10) return alert('Telefone inválido para o WhatsApp.');
+        window.open(`https://wa.me/55${numero}?text=Olá%20${encodeURIComponent(btn.dataset.nome)},%20aqui%20é%20do%20ACS.`, '_blank');
+    }
+});
+
 $('cadastroForm').addEventListener('submit', async event => { event.preventDefault(); if ($('dataNascimento').value.length !== 10) return alert('Digite a data no formato DD/MM/AAAA.'); const response = await requisicao(editandoId ? `/api/cadastros/${editandoId}` : '/api/cadastros', { method: editandoId ? 'PUT' : 'POST', body: JSON.stringify(dadosFormulario()) }); if (!response.ok) return alert(await mensagem(response)); cancelarEdicao(); buscarCadastros(); });
 function editarCadastro(id) { const c = cadastros.find(item => item._id === id); if (!c) return; editandoId = id; $('nomeCompleto').value = c.nomeCompleto; $('dataNascimento').value = formatarData(c.dataNascimento); $('cpf').value = c.cpf; $('telefone').value = c.telefone; $('endereco').value = c.endereco; $('numero').value = c.numero; $('bairro').value = c.bairro; $('sexo').value = c.sexo; $('criancaDeZeroANove').value = String(c.criancaDeZeroANove); $('gestante').value = String(c.gestante); $('outrasDoencas').value = c.outrasDoencas || ''; document.querySelectorAll('input[name="doenca"]').forEach(item => item.checked = c.doencasPreexistentes?.includes(item.value)); $('formTitle').textContent = 'Editar Cadastro'; $('cancelBtn').hidden = false; window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function cancelarEdicao() { editandoId = null; $('cadastroForm').reset(); $('formTitle').textContent = 'Novo Cadastro'; $('cancelBtn').hidden = true; }
