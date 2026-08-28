@@ -20,7 +20,12 @@ try { visionClient = new vision.ImageAnnotatorClient(); } catch (_) { console.wa
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-mongoose.connect(MONGODB_URI).then(() => console.log('MongoDB connected')).catch(error => console.error('MongoDB connection error:', error.message));
+mongoose.connect(MONGODB_URI).then(async () => {
+    // Remove o índice antigo de CPF único global, permitindo que cada conta tenha a própria lista.
+    try { await Cadastro.collection.dropIndex('cpf_1'); console.log('Índice antigo de CPF removido.'); }
+    catch (error) { if (error.codeName !== 'IndexNotFound') console.warn('Não foi possível remover o índice antigo de CPF:', error.message); }
+    console.log('MongoDB connected');
+}).catch(error => console.error('MongoDB connection error:', error.message));
 
 function bancoDisponivel(req, res, next) {
     if (mongoose.connection.readyState !== 1) return res.status(503).json({ message: 'Banco de dados indisponível. Verifique MONGODB_URI.' });
@@ -43,6 +48,14 @@ function dadosDoCadastro(body) {
         doencasPreexistentes: Array.isArray(body.doencasPreexistentes) ? body.doencasPreexistentes.filter(item => doencasPermitidas.includes(item)) : []
     };
 }
+async function migrarCadastrosDaDiana(usuario) {
+    if (usuario.usuario !== '0255335732587') return;
+    const resultado = await Cadastro.collection.updateMany(
+        { $or: [{ usuarioId: { $exists: false } }, { usuarioId: null }] },
+        { $set: { usuarioId: usuario._id } }
+    );
+    if (resultado.modifiedCount) console.log(`${resultado.modifiedCount} cadastro(s) antigo(s) associado(s) à Diana.`);
+}
 
 app.use('/api', bancoDisponivel);
 app.post('/api/auth/registrar', async (req, res) => {
@@ -50,12 +63,14 @@ app.post('/api/auth/registrar', async (req, res) => {
         const nome = req.body.nome?.trim(); const usuario = req.body.usuario?.trim().toLowerCase(); const senha = req.body.senha;
         if (!nome || !usuario || !senha || senha.length < 6) return res.status(400).json({ message: 'Informe nome, usuário e senha de no mínimo 6 caracteres.' });
         const novoUsuario = await Usuario.create({ nome, usuario, senhaHash: await bcrypt.hash(senha, 12) });
+        await migrarCadastrosDaDiana(novoUsuario);
         res.status(201).json({ token: tokenPara(novoUsuario), usuario: { nome: novoUsuario.nome, usuario: novoUsuario.usuario } });
     } catch (error) { res.status(error.code === 11000 ? 409 : 400).json({ message: error.code === 11000 ? 'Este nome de usuário já existe.' : error.message }); }
 });
 app.post('/api/auth/login', async (req, res) => {
     const usuario = await Usuario.findOne({ usuario: req.body.usuario?.trim().toLowerCase() });
     if (!usuario || !(await bcrypt.compare(req.body.senha || '', usuario.senhaHash))) return res.status(401).json({ message: 'Usuário ou senha inválidos.' });
+    await migrarCadastrosDaDiana(usuario);
     res.json({ token: tokenPara(usuario), usuario: { nome: usuario.nome, usuario: usuario.usuario } });
 });
 app.post('/api/scan', autenticar, upload.single('ficha'), async (req, res) => {

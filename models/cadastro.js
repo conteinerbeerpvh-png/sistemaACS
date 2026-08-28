@@ -28,7 +28,6 @@ const cadastroSchema = new mongoose.Schema({
     doencasPreexistentes: [{ type: String, enum: ['Hipertensão', 'Diabetes', 'Tuberculose', 'Hanseníase', 'Câncer', 'Asma', 'HIV'] }],
     cpf: {
         type: String,
-        required: true,
         required: true
     },
     telefone: {
