@@ -8,13 +8,13 @@ const texto = valor => String(valor ?? '').replace(/[&<>"']/g, char => ({ '&':'&
 function headers(json = false) { return { ...(json ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }; }
 async function requisicao(url, options = {}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const response = await fetch(url, { ...options, signal: controller.signal, headers: { ...headers(Boolean(options.body && !(options.body instanceof FormData))), ...(options.headers || {}) } });
+    const response = await fetch(url, { ...options, signal: controller.signal, cache: 'no-store', headers: { ...headers(Boolean(options.body && !(options.body instanceof FormData))), ...(options.headers || {}) } });
     if (response.status === 401 && token) sair();
     return response;
   } catch (error) {
-    if (error.name === 'AbortError') throw new Error('O servidor demorou mais de 30 segundos para responder. Tente novamente.');
+    if (error.name === 'AbortError') throw new Error('O servidor não respondeu em 8 segundos. Tente novamente.');
     throw error;
   } finally { clearTimeout(timeout); }
 }

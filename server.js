@@ -94,7 +94,7 @@ app.post('/api/cadastros', autenticar, async (req, res) => {
     catch (error) { res.status(error.code === 11000 ? 409 : 400).json({ message: error.code === 11000 ? 'CPF já cadastrado na sua lista.' : error.message }); }
 });
 app.get('/api/cadastros', autenticar, async (req, res) => {
-    try { const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''; const query = { usuarioId: req.usuario.id }; if (search) query.$or = ['nomeCompleto', 'cpf', 'telefone', 'bairro', 'endereco', 'doencasPreexistentes'].map(campo => ({ [campo]: { $regex: escapeRegex(search), $options: 'i' } })); res.json(await Cadastro.find(query).sort({ dataCadastro: -1 })); }
+    try { await migrarCadastrosDaDiana(req.usuario); const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''; const query = { usuarioId: req.usuario.id }; if (search) query.$or = ['nomeCompleto', 'cpf', 'telefone', 'bairro', 'endereco', 'doencasPreexistentes'].map(campo => ({ [campo]: { $regex: escapeRegex(search), $options: 'i' } })); res.json(await Cadastro.find(query).sort({ dataCadastro: -1 })); }
     catch (error) { res.status(500).json({ message: error.message }); }
 });
 app.get('/api/cadastros/:id', autenticar, async (req, res) => { try { const cadastro = await Cadastro.findOne({ _id: req.params.id, usuarioId: req.usuario.id }); if (!cadastro) return res.status(404).json({ message: 'Cadastro não encontrado.' }); res.json(cadastro); } catch (_) { res.status(400).json({ message: 'ID inválido.' }); } });
