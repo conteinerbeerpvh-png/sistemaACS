@@ -49,7 +49,7 @@ function dadosDoCadastro(body) {
     };
 }
 async function migrarCadastrosDaDiana(usuario) {
-    if (usuario.usuario !== '0255335732587') return;
+    if (usuario.usuario !== '02553357257') return;
     const resultado = await Cadastro.collection.updateMany(
         { $or: [{ usuarioId: { $exists: false } }, { usuarioId: null }] },
         { $set: { usuarioId: usuario._id } }
@@ -63,15 +63,21 @@ app.post('/api/auth/registrar', async (req, res) => {
         const nome = req.body.nome?.trim(); const usuario = req.body.usuario?.trim().toLowerCase(); const senha = req.body.senha;
         if (!nome || !usuario || !senha || senha.length < 6) return res.status(400).json({ message: 'Informe nome, usuário e senha de no mínimo 6 caracteres.' });
         const novoUsuario = await Usuario.create({ nome, usuario, senhaHash: await bcrypt.hash(senha, 12) });
-        await migrarCadastrosDaDiana(novoUsuario);
+        migrarCadastrosDaDiana(novoUsuario).catch(error => console.error('Erro ao migrar cadastros antigos:', error.message));
         res.status(201).json({ token: tokenPara(novoUsuario), usuario: { nome: novoUsuario.nome, usuario: novoUsuario.usuario } });
     } catch (error) { res.status(error.code === 11000 ? 409 : 400).json({ message: error.code === 11000 ? 'Este nome de usuário já existe.' : error.message }); }
 });
 app.post('/api/auth/login', async (req, res) => {
-    const usuario = await Usuario.findOne({ usuario: req.body.usuario?.trim().toLowerCase() });
-    if (!usuario || !(await bcrypt.compare(req.body.senha || '', usuario.senhaHash))) return res.status(401).json({ message: 'Usuário ou senha inválidos.' });
-    await migrarCadastrosDaDiana(usuario);
-    res.json({ token: tokenPara(usuario), usuario: { nome: usuario.nome, usuario: usuario.usuario } });
+    try {
+        const usuario = await Usuario.findOne({ usuario: req.body.usuario?.trim().toLowerCase() });
+        if (!usuario || !(await bcrypt.compare(req.body.senha || '', usuario.senhaHash))) return res.status(401).json({ message: 'Usuário ou senha inválidos.' });
+        // A associação dos registros antigos roda em segundo plano e nunca bloqueia o login.
+        migrarCadastrosDaDiana(usuario).catch(error => console.error('Erro ao migrar cadastros antigos:', error.message));
+        res.json({ token: tokenPara(usuario), usuario: { nome: usuario.nome, usuario: usuario.usuario } });
+    } catch (error) {
+        console.error('Erro no login:', error);
+        res.status(500).json({ message: 'Não foi possível concluir o login. Tente novamente.' });
+    }
 });
 app.post('/api/scan', autenticar, upload.single('ficha'), async (req, res) => {
     try {

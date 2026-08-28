@@ -7,9 +7,16 @@ const $ = id => document.getElementById(id);
 const texto = valor => String(valor ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' })[char]);
 function headers(json = false) { return { ...(json ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }; }
 async function requisicao(url, options = {}) {
-  const response = await fetch(url, { ...options, headers: { ...headers(Boolean(options.body && !(options.body instanceof FormData))), ...(options.headers || {}) } });
-  if (response.status === 401 && token) sair();
-  return response;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal, headers: { ...headers(Boolean(options.body && !(options.body instanceof FormData))), ...(options.headers || {}) } });
+    if (response.status === 401 && token) sair();
+    return response;
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('O servidor demorou mais de 30 segundos para responder. Tente novamente.');
+    throw error;
+  } finally { clearTimeout(timeout); }
 }
 async function mensagem(response) { return (await response.json().catch(() => ({}))).message || `Erro do servidor (HTTP ${response.status})`; }
 function mostrarApp() { $('authScreen').hidden = true; $('appScreen').hidden = false; $('usuarioLogado').textContent = `Olá, ${usuario.nome}`; buscarCadastros(); }
@@ -17,7 +24,7 @@ function sair() { localStorage.removeItem('acs_token'); localStorage.removeItem(
 function salvarSessao(dados) { token = dados.token; usuario = dados.usuario; localStorage.setItem('acs_token', token); localStorage.setItem('acs_usuario', JSON.stringify(usuario)); mostrarApp(); }
 
 $('toggleAuth').addEventListener('click', () => { const criando = $('registerForm').hidden; $('registerForm').hidden = !criando; $('loginForm').hidden = criando; $('toggleAuth').textContent = criando ? 'Voltar para o login' : 'Criar novo usuário e senha'; $('authDescricao').textContent = criando ? 'Crie uma conta para manter seus cadastros separados.' : 'Entre para acessar seus cadastros individuais.'; $('authMensagem').textContent = ''; });
-$('loginForm').addEventListener('submit', async event => { event.preventDefault(); $('authMensagem').textContent = 'Entrando...'; try { const response = await requisicao('/api/auth/login', { method: 'POST', body: JSON.stringify({ usuario: $('loginUsuario').value, senha: $('loginSenha').value }) }); if (!response.ok) return $('authMensagem').textContent = await mensagem(response); salvarSessao(await response.json()); } catch (_) { $('authMensagem').textContent = 'Não foi possível acessar o servidor. Verifique se a nova versão foi publicada.'; } });
+$('loginForm').addEventListener('submit', async event => { event.preventDefault(); const botao = $('loginForm').querySelector('button'); botao.disabled = true; $('authMensagem').textContent = 'Entrando...'; try { const response = await requisicao('/api/auth/login', { method: 'POST', body: JSON.stringify({ usuario: $('loginUsuario').value.trim(), senha: $('loginSenha').value }) }); if (!response.ok) return $('authMensagem').textContent = await mensagem(response); salvarSessao(await response.json()); } catch (error) { $('authMensagem').textContent = error.message || 'Não foi possível acessar o servidor. Tente novamente.'; } finally { botao.disabled = false; } });
 $('registerForm').addEventListener('submit', async event => { event.preventDefault(); $('authMensagem').textContent = 'Criando conta...'; try { const response = await requisicao('/api/auth/registrar', { method: 'POST', body: JSON.stringify({ nome: $('novoNome').value, usuario: $('novoUsuario').value, senha: $('novaSenha').value }) }); if (!response.ok) return $('authMensagem').textContent = await mensagem(response); salvarSessao(await response.json()); } catch (_) { $('authMensagem').textContent = 'Não foi possível acessar o servidor. Verifique se a nova versão foi publicada.'; } });
 $('logoutBtn').addEventListener('click', sair);
 
