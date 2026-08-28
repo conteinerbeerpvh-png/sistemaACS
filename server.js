@@ -32,7 +32,16 @@ function bancoDisponivel(req, res, next) {
     next();
 }
 function escapeRegex(value) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-function tokenPara(usuario) { return jwt.sign({ id: usuario._id, nome: usuario.nome, usuario: usuario.usuario }, JWT_SECRET, { expiresIn: '12h' }); }
+function tokenPara(usuario) {
+    return jwt.sign({ id: String(usuario._id), nome: usuario.nome, usuario: usuario.usuario }, JWT_SECRET, { expiresIn: '12h' });
+}
+function respostaDeLogin(res, usuario) {
+    // Envia somente valores simples; evita serialização de documentos do Mongoose na resposta de sucesso.
+    return res.status(200).type('application/json').send(JSON.stringify({
+        token: tokenPara(usuario),
+        usuario: { nome: String(usuario.nome), usuario: String(usuario.usuario) }
+    }));
+}
 function autenticar(req, res, next) {
     const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
     if (!token) return res.status(401).json({ message: 'Faça login para continuar.' });
@@ -64,16 +73,15 @@ app.post('/api/auth/registrar', async (req, res) => {
         if (!nome || !usuario || !senha || senha.length < 6) return res.status(400).json({ message: 'Informe nome, usuário e senha de no mínimo 6 caracteres.' });
         const novoUsuario = await Usuario.create({ nome, usuario, senhaHash: await bcrypt.hash(senha, 12) });
         migrarCadastrosDaDiana(novoUsuario).catch(error => console.error('Erro ao migrar cadastros antigos:', error.message));
-        res.status(201).json({ token: tokenPara(novoUsuario), usuario: { nome: novoUsuario.nome, usuario: novoUsuario.usuario } });
+        respostaDeLogin(res, novoUsuario);
     } catch (error) { res.status(error.code === 11000 ? 409 : 400).json({ message: error.code === 11000 ? 'Este nome de usuário já existe.' : error.message }); }
 });
 app.post('/api/auth/login', async (req, res) => {
     try {
         const usuario = await Usuario.findOne({ usuario: req.body.usuario?.trim().toLowerCase() });
         if (!usuario || !(await bcrypt.compare(req.body.senha || '', usuario.senhaHash))) return res.status(401).json({ message: 'Usuário ou senha inválidos.' });
-        // A associação dos registros antigos roda em segundo plano e nunca bloqueia o login.
-        migrarCadastrosDaDiana(usuario).catch(error => console.error('Erro ao migrar cadastros antigos:', error.message));
-        res.json({ token: tokenPara(usuario), usuario: { nome: usuario.nome, usuario: usuario.usuario } });
+        // A migração dos cadastros antigos ocorre somente na rota de listagem, após o login.
+        respostaDeLogin(res, usuario);
     } catch (error) {
         console.error('Erro no login:', error);
         res.status(500).json({ message: 'Não foi possível concluir o login. Tente novamente.' });
