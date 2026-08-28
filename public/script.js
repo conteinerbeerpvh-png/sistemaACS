@@ -49,7 +49,27 @@ $('loginForm').addEventListener('submit', async event => { event.preventDefault(
 $('registerForm').addEventListener('submit', async event => { event.preventDefault(); $('authMensagem').textContent = 'Criando conta...'; try { const response = await requisicao('/api/auth/registrar', { method: 'POST', body: JSON.stringify({ nome: $('novoNome').value, usuario: $('novoUsuario').value, senha: $('novaSenha').value }) }); if (!response.ok) return $('authMensagem').textContent = await mensagem(response); salvarSessao(await response.json()); } catch (_) { $('authMensagem').textContent = 'Não foi possível acessar o servidor. Verifique se a nova versão foi publicada.'; } });
 $('logoutBtn').addEventListener('click', sair);
 
-function mascaraData() { let v = $('dataNascimento').value.replace(/\D/g, ''); if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2); if (v.length > 5) v = v.slice(0, 5) + '/' + v.slice(5, 9); $('dataNascimento').value = v; }
+// Máscara de data modificada para calcular a idade automaticamente
+function mascaraData() { 
+  let v = $('dataNascimento').value.replace(/\D/g, ''); 
+  if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2); 
+  if (v.length > 5) v = v.slice(0, 5) + '/' + v.slice(5, 9); 
+  $('dataNascimento').value = v; 
+  
+  if (v.length === 10) {
+    const [dia, mes, ano] = v.split('/');
+    const hoje = new Date();
+    const nasc = new Date(ano, mes - 1, dia);
+    let idade = hoje.getFullYear() - nasc.getFullYear();
+    if (hoje.getMonth() < nasc.getMonth() || (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate())) {
+        idade--;
+    }
+    $('criancaDeZeroANove').value = (idade >= 0 && idade <= 9) ? 'true' : 'false';
+  } else {
+    $('criancaDeZeroANove').value = '';
+  }
+}
+
 function mascaraCpf() { let v = $('cpf').value.replace(/\D/g, '').slice(0, 11); $('cpf').value = v.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2'); }
 function mascaraTelefone() { let v = $('telefone').value.replace(/\D/g, '').slice(0, 11); $('telefone').value = v.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d)(\d{4})$/, '$1-$2'); }
 $('dataNascimento').addEventListener('input', mascaraData); $('cpf').addEventListener('input', mascaraCpf); $('telefone').addEventListener('input', mascaraTelefone);
@@ -71,7 +91,6 @@ $('cancelBtn').addEventListener('click', cancelarEdicao); $('buscarBtn').addEven
 // ==========================================
 const btnVoz = $('btnScan');
 if (btnVoz) {
-    // Ajusta o botão e esconde o input de arquivo (sem precisar editar o HTML)
     btnVoz.innerHTML = '<i class="fas fa-microphone"></i> Preencher por voz';
     if ($('fichaUpload')) {
         $('fichaUpload').style.display = 'none';
@@ -104,22 +123,22 @@ if (btnVoz) {
                 return match ? match[1].trim() : '';
             };
 
-            const nomeMatch = fala.match(/nome\s+completo\s+(.*?)(?=\s+data|\s+cpf|\s+telefone|\s+sexo|\s+criança|\s+gestante|\s+endereço|\s+bairro|$)/i);
+            const nomeMatch = fala.match(/nome\s+completo\s+(.*?)(?=\s+data|\s+cpf|\s+telefone|\s+sexo|\s+gestante|\s+endereço|\s+bairro|$)/i);
             if (nomeMatch) $('nomeCompleto').value = nomeMatch[1].replace(/(^\w|\s\w)/g, m => m.toUpperCase());
 
-            const dataMatch = extrair(/data de nascimento\s+([\d/]+|.*?(?=\s+cpf|\s+telefone|\s+sexo|\s+criança|\s+gestante|\s+endereço|\s+bairro|$))/i);
+            const dataMatch = extrair(/data de nascimento\s+([\d/]+|.*?(?=\s+cpf|\s+telefone|\s+sexo|\s+gestante|\s+endereço|\s+bairro|$))/i);
             if (dataMatch) {
                 $('dataNascimento').value = dataMatch.replace(/[^\d]/g, '');
-                mascaraData();
+                mascaraData(); // Esta função agora cuida da formatação E de checar a idade
             }
 
-            const cpfMatch = extrair(/cpf\s+([\d.-]+|.*?(?=\s+telefone|\s+sexo|\s+criança|\s+gestante|\s+endereço|\s+bairro|$))/i);
+            const cpfMatch = extrair(/cpf\s+([\d.-]+|.*?(?=\s+telefone|\s+sexo|\s+gestante|\s+endereço|\s+bairro|$))/i);
             if (cpfMatch) {
                 $('cpf').value = cpfMatch.replace(/[^\d]/g, '');
                 mascaraCpf();
             }
 
-            const telefoneMatch = extrair(/telefone\s+([\d\s()-]+|.*?(?=\s+sexo|\s+criança|\s+gestante|\s+endereço|\s+bairro|$))/i);
+            const telefoneMatch = extrair(/telefone\s+([\d\s()-]+|.*?(?=\s+sexo|\s+gestante|\s+endereço|\s+bairro|$))/i);
             if (telefoneMatch) {
                 $('telefone').value = telefoneMatch.replace(/[^\d]/g, '');
                 mascaraTelefone();
@@ -129,12 +148,6 @@ if (btnVoz) {
                 $('sexo').value = 'M';
             } else if (fala.includes('sexo feminino') || fala.includes('feminino')) {
                 $('sexo').value = 'F';
-            }
-
-            if (fala.includes('não sou criança') || fala.includes('não é criança')) {
-                $('criancaDeZeroANove').value = 'false';
-            } else if (fala.includes('sou criança') || fala.match(/é criança\s+sim/)) {
-                $('criancaDeZeroANove').value = 'true';
             }
 
             if (fala.includes('não sou gestante') || fala.includes('não é gestante')) {
