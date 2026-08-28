@@ -36,11 +36,11 @@ function tokenPara(usuario) {
     return jwt.sign({ id: String(usuario._id), nome: usuario.nome, usuario: usuario.usuario }, JWT_SECRET, { expiresIn: '12h' });
 }
 function respostaDeLogin(res, usuario) {
-    // Envia somente valores simples; evita serialização de documentos do Mongoose na resposta de sucesso.
-    return res.status(200).type('application/json').send(JSON.stringify({
+    // Correção: Usa res.json() para garantir a formatação UTF-8 correta e evitar que o fetch do frontend trave aguardando bytes.
+    return res.status(200).json({
         token: tokenPara(usuario),
-        usuario: { nome: String(usuario.nome), usuario: String(usuario.usuario) }
-    }));
+        usuario: { nome: usuario.nome, usuario: usuario.usuario }
+    });
 }
 function autenticar(req, res, next) {
     const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
