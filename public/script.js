@@ -19,8 +19,29 @@ async function requisicao(url, options = {}) {
   } finally { clearTimeout(timeout); }
 }
 async function mensagem(response) { return (await response.json().catch(() => ({}))).message || `Erro do servidor (HTTP ${response.status})`; }
-function mostrarApp() { $('authScreen').hidden = true; $('appScreen').hidden = false; $('usuarioLogado').textContent = `Olá, ${usuario.nome}`; buscarCadastros(); }
-function sair() { localStorage.removeItem('acs_token'); localStorage.removeItem('acs_usuario'); token = null; usuario = null; $('appScreen').hidden = true; $('authScreen').hidden = false; $('loginForm').reset(); }
+
+function mostrarApp() { 
+  $('authMensagem').textContent = ''; 
+  $('authScreen').hidden = true; 
+  $('authScreen').style.display = 'none'; // Força a ocultação sobrepondo o display: grid do CSS
+  $('appScreen').hidden = false; 
+  $('appScreen').style.display = 'block'; 
+  $('usuarioLogado').textContent = `Olá, ${usuario.nome}`; 
+  buscarCadastros(); 
+}
+
+function sair() { 
+  localStorage.removeItem('acs_token'); 
+  localStorage.removeItem('acs_usuario'); 
+  token = null; 
+  usuario = null; 
+  $('appScreen').hidden = true; 
+  $('appScreen').style.display = 'none'; 
+  $('authScreen').hidden = false; 
+  $('authScreen').style.display = ''; // Devolve o controle para o display: grid do CSS
+  $('loginForm').reset(); 
+}
+
 function salvarSessao(dados) { token = dados.token; usuario = dados.usuario; localStorage.setItem('acs_token', token); localStorage.setItem('acs_usuario', JSON.stringify(usuario)); mostrarApp(); }
 
 $('toggleAuth').addEventListener('click', () => { const criando = $('registerForm').hidden; $('registerForm').hidden = !criando; $('loginForm').hidden = criando; $('toggleAuth').textContent = criando ? 'Voltar para o login' : 'Criar novo usuário e senha'; $('authDescricao').textContent = criando ? 'Crie uma conta para manter seus cadastros separados.' : 'Entre para acessar seus cadastros individuais.'; $('authMensagem').textContent = ''; });
