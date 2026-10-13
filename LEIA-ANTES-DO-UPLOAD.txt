@@ -16,6 +16,13 @@ ANTES DA PUBLICAÇÃO
 - Configure JWT_SECRET com uma chave exclusiva de pelo menos 32 caracteres. A chave antiga e pública de fallback foi removida.
 - Não envie senhas, tokens ou o arquivo .env ao GitHub. Este pacote não contém credenciais de produção.
 
+NOVO FLUXO DE CADASTRO
+- No novo paciente, marque Responsável pela família e salve. O sistema cria a família com essa ficha e abre a área de membros.
+- Em pacientes existentes, use Editar, marque a opção e salve. A ficha já cadastrada é reaproveitada.
+- Se a pessoa já for responsável, sua família será aberta sem duplicação.
+- Pesquise membros já cadastrados por nome, CPF ou telefone, ou escolha Cadastrar novo familiar.
+- O cadastro manual de família fica recolhido como alternativa.
+
 O QUE FOI INCLUÍDO
 - Famílias com responsável, ficha, microárea, endereço e membros.
 - Vínculo a cadastros existentes sem duplicação e cadastro de novo familiar.
@@ -28,7 +35,7 @@ ESTRATIFICAÇÃO
 A classificação é registrada pelo profissional responsável. Esta versão não calcula risco clínico automaticamente. O cálculo depende do protocolo definido pela equipe.
 
 VALIDAÇÃO
-16 testes automatizados passaram, incluindo API com MongoDB temporário e fluxos da interface com JSDOM. O deploy de produção e o layout visual em navegador não foram verificados.
+19 testes automatizados passaram, incluindo API com MongoDB temporário e fluxos da interface com JSDOM. O deploy de produção e o layout visual em navegador não foram verificados.
 
 Para uso local: npm ci, npm test, npm start.
 Consulte README.md para detalhes.

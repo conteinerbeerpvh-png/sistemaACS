@@ -29,14 +29,16 @@ Na primeira tela, use **Criar novo usuário e senha** para criar a conta de cada
 
 Cada família tem nome, responsável, número da ficha, microárea, endereço e membros. O responsável é uma pessoa cadastrada na lista do agente e já entra como membro ao criar a família.
 
-1. Cadastre o responsável na ficha individual, se ainda não existir.
-2. Em **Famílias e responsáveis**, escolha a pessoa e crie a família.
-3. Abra a família e use **Vincular cadastro existente** para adicionar uma pessoa da sua lista. Informe o vínculo/parentesco com o responsável.
+1. Na ficha individual, marque **Responsável pela família** e use **Salvar e adicionar membros**. A família é criada com a ficha do paciente e o endereço informado, e a área de membros é aberta automaticamente. Não é necessário preencher outro cadastro do responsável.
+2. Para um paciente que já existe, use **Editar**, marque a opção e salve. A mesma ficha é reaproveitada. Se já for responsável, sua família será aberta sem criar outra. Se já for membro de uma família, o sistema pede confirmação para torná-lo responsável nessa mesma família.
+3. Na área de membros, pesquise alguém já cadastrado por nome, CPF ou telefone, selecione a pessoa e use **Vincular cadastro existente**. Informe o vínculo/parentesco com o responsável.
 4. Para uma pessoa nova, use **Cadastrar novo familiar**. O formulário individual recebe o endereço do responsável como sugestão editável. Ao salvar a ficha, o sistema tenta vinculá-la à família. Se o vínculo falhar, a ficha continua salva e pode ser vinculada pela opção de cadastro existente, sem refazer o cadastro.
 5. Use **Tornar responsável** para trocar o responsável por outro membro. Revise depois os vínculos em relação ao novo responsável, usando **Editar vínculo**.
 6. **Desvincular** remove apenas a associação. A ficha individual e suas avaliações permanecem.
 
 Uma pessoa só pode pertencer a uma família na lista do mesmo agente. O MongoDB protege essa regra com um índice único, inclusive em solicitações simultâneas. Não é possível remover o responsável atual: primeiro selecione outro membro como responsável. Famílias e fichas de contas diferentes não podem ser vinculadas.
+
+O cadastro manual de família permanece recolhido como alternativa. Use **Editar família** para informar ou ajustar nome, número da ficha, microárea e endereço. Desmarcar um responsável existente não remove sua função: a troca exige escolher outro membro na área da família. Se o paciente for salvo e houver falha na criação da família, a tela mantém sua ficha em edição para permitir nova tentativa sem duplicá-lo.
 
 Os dados de família ficam na nova coleção `familias`; os cadastros individuais existentes não são recriados ou agrupados automaticamente pelo endereço. Endereço igual, sozinho, não identifica uma família. O responsável e os membros continuam com fichas individuais independentes.
 

@@ -511,3 +511,6 @@ main {
         padding: 10px; /* Fica mais fácil de apertar com o dedo */
     }
 }
+
+#familiaCadastroManual { margin: 15px 0; }
+#familiaCadastroManual summary { cursor: pointer; color: #4f62c8; font-weight: 600; margin-bottom: 15px; }

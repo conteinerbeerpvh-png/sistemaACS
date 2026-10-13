@@ -3,6 +3,7 @@ let pessoasFamilia = [];
 let familiaAberta = null;
 let familiaEditando = null;
 let novoFamiliarContexto = null;
+let familiaDoNovoMembro = null;
 let riscoContexto = null;
 const risco = window.RiscoACS;
 
@@ -24,29 +25,74 @@ window.cadastrosVisiveis = () => cadastros.filter(c => risco.corresponde(c.avali
 for (const id of ['filtroRiscoTipo', 'filtroRiscoNivel', 'filtroRiscoPrazo']) $(id).addEventListener('change', exibirCadastros);
 
 async function carregarOrganizacao() {
-    if (!token) return;
+    if (!token) return false;
     const sessao = token;
     try {
         const respostas = await Promise.all([requisicao('/api/familias'), requisicao('/api/cadastros')]);
         for (const resposta of respostas) if (!resposta.ok) throw new Error(await mensagem(resposta));
         const [novasFamilias, pessoas] = await Promise.all(respostas.map(r => r.json()));
-        if (sessao !== token) return;
+        if (sessao !== token) return false;
         familias = novasFamilias;
         pessoasFamilia = pessoas;
         atualizarResponsaveis();
         exibirFamilias();
         if (familiaAberta) abrirFamilia(familiaAberta);
         exibirCadastros();
-    } catch (error) { if (sessao === token) $('familiaMensagem').textContent = error.message; }
+        return true;
+    } catch (error) { if (sessao === token) $('familiaMensagem').textContent = error.message; return false; }
 }
 window.carregarOrganizacao = carregarOrganizacao;
+function prepararResponsavelNoFormulario(cadastro) {
+    const familia = cadastro ? familiaDaPessoa(cadastro._id) : null;
+    const jaResponsavel = Boolean(familia && String(familia.responsavelId) === cadastro._id);
+    $('responsavelFamilia').checked = jaResponsavel;
+    $('responsavelFamilia').disabled = jaResponsavel;
+    $('responsavelFamiliaAjuda').textContent = jaResponsavel
+        ? 'Este paciente já é responsável pela família. Ao salvar, a área de membros será aberta. Para trocar o responsável, use a área da família.'
+        : 'Marque para criar a família com esta ficha. Ao salvar, será aberta a área para adicionar os membros.';
+    atualizarBotaoCadastro();
+}
+function atualizarBotaoCadastro() {
+    $('submitBtn').textContent = $('responsavelFamilia').checked ? 'Salvar e adicionar membros' : 'Salvar cadastro';
+}
+window.prepararResponsavelNoFormulario = prepararResponsavelNoFormulario;
+$('responsavelFamilia').addEventListener('change', atualizarBotaoCadastro);
+function focarMembrosFamilia(id) {
+    abrirFamilia(id);
+    $('familiaDetalhe').scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    $('membroBusca')?.focus({ preventScroll: true });
+}
+window.focarMembrosFamilia = focarMembrosFamilia;
+window.abrirFamiliaDoResponsavel = async function (cadastro) {
+    if (!await carregarOrganizacao()) throw new Error('Não foi possível verificar as famílias existentes');
+    let familia = familiaDaPessoa(cadastro._id);
+    if (familia && String(familia.responsavelId) !== cadastro._id) {
+        if (!confirm(`Esta pessoa já pertence à família “${familia.nome}”. Deseja torná-la responsável? Revise depois o parentesco dos outros membros.`)) {
+            focarMembrosFamilia(familia._id);
+            return;
+        }
+        const resposta = await requisicao(`/api/familias/${familia._id}/responsavel`, { method: 'PUT', body: JSON.stringify({ cadastroId: cadastro._id }) });
+        if (!resposta.ok) throw new Error(await mensagem(resposta));
+    } else if (!familia) {
+        const resposta = await requisicao('/api/familias', { method: 'POST', body: JSON.stringify({
+            nome: ('Família de ' + cadastro.nomeCompleto).slice(0, 150), responsavelId: cadastro._id,
+            numeroFicha: '', microarea: '', endereco: `${cadastro.endereco}, Nº ${cadastro.numero} — ${cadastro.bairro}`.slice(0, 250)
+        }) });
+        if (!resposta.ok) throw new Error(await mensagem(resposta));
+        familia = await resposta.json();
+    }
+    if (!await carregarOrganizacao()) throw new Error('Não foi possível atualizar a área de membros; a família salva pode ser aberta pela lista');
+    $('familiaMensagem').textContent = 'Responsável salvo. Adicione um novo familiar ou pesquise alguém já cadastrado.';
+    focarMembrosFamilia(familia._id);
+};
 window.limparOrganizacao = function () {
     familias = []; pessoasFamilia = []; familiaAberta = null; familiaEditando = null;
-    novoFamiliarContexto = null; riscoContexto = null;
+    novoFamiliarContexto = null; familiaDoNovoMembro = null; riscoContexto = null;
     $('familiasList').replaceChildren(); $('familiaDetalhe').replaceChildren(); $('familiaDetalhe').hidden = true;
     $('familiaForm').reset(); $('riscoForm').reset(); $('riscoHistorico').replaceChildren(); $('riscoAtual').replaceChildren();
     if ($('riscoDialog').open) $('riscoDialog').close();
     $('familiaResponsavel').disabled = false; $('salvarFamilia').textContent = 'Criar família'; $('cancelarFamilia').hidden = true;
+    $('familiaCadastroManual').open = false;
     $('familiaMensagem').textContent = ''; $('familiaBusca').value = ''; $('listaEstado').value = 'ativos';
     for (const id of ['filtroRiscoTipo', 'filtroRiscoNivel', 'filtroRiscoPrazo']) $(id).value = '';
 };
@@ -70,6 +116,7 @@ function abrirFamilia(id) {
     const disponiveis = pessoasFamilia.filter(p => !familiaDaPessoa(p._id));
     $('familiaDetalhe').hidden = false;
     $('familiaDetalhe').innerHTML = `<h3>${texto(f.nome)}</h3><p class="help-text">${texto(f.endereco || 'Endereço não informado')}</p>
+        <div class="form-group"><label for="membroBusca">Pesquisar pessoa já cadastrada</label><input id="membroBusca" placeholder="Nome, CPF ou telefone" autocomplete="off"></div>
         <div class="form-row"><div class="form-group"><label for="membroExistente">Adicionar cadastro existente</label><select id="membroExistente"><option value="">Selecione...</option>${disponiveis.map(p => `<option value="${texto(p._id)}">${texto(p.nomeCompleto)} · ${texto(p.cpf)}</option>`).join('')}</select></div><div class="form-group"><label for="membroParentesco">Vínculo/parentesco com o responsável</label><input id="membroParentesco" maxlength="100" placeholder="Ex.: filho, cônjuge ou outro vínculo"></div></div>
         <div class="cadastro-actions"><button type="button" id="vincularMembro" class="btn-edit">Vincular cadastro existente</button><button type="button" id="novoMembro" class="btn-secondary">Cadastrar novo familiar</button></div>
         <div>${f.membros.map(m => {
@@ -78,6 +125,15 @@ function abrirFamilia(id) {
             const responsavel = String(f.responsavelId) === p._id;
             return `<article class="membro-item"><strong>${texto(p.nomeCompleto)}</strong> · ${responsavel ? 'Responsável' : texto(m.parentesco || 'Vínculo não informado')}${p.arquivado ? ' · Cadastro arquivado' : ''}<p>CPF: ${texto(p.cpf)}</p><div class="cadastro-actions"><button class="btn-print" data-risco-pessoa="${texto(p._id)}" type="button">Risco individual</button>${!responsavel ? `<button class="btn-clear" data-vinculo="${texto(p._id)}" type="button">Editar vínculo</button><button class="btn-edit" data-responsavel="${texto(p._id)}" type="button">Tornar responsável</button><button class="btn-delete" data-desvincular="${texto(p._id)}" type="button">Desvincular</button>` : ''}</div></article>`;
         }).join('')}</div>`;
+    $('membroBusca').addEventListener('input', () => {
+        const normalizar = valor => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const termo = normalizar($('membroBusca').value.trim());
+        const digitos = termo.replace(/\D/g, '');
+        const buscarDocumento = /^[\d.\-()\s]+$/.test(termo) && digitos;
+        const encontrados = disponiveis.filter(p => [p.nomeCompleto, p.cpf, p.telefone].some(valor => normalizar(valor).includes(termo)) ||
+            (buscarDocumento && [p.cpf, p.telefone].some(valor => String(valor || '').replace(/\D/g, '').includes(digitos))));
+        $('membroExistente').innerHTML = `<option value="">${encontrados.length ? 'Selecione...' : 'Nenhuma pessoa disponível encontrada'}</option>` + encontrados.map(p => `<option value="${texto(p._id)}">${texto(p.nomeCompleto)} · ${texto(p.cpf)}</option>`).join('');
+    });
 }
 $('familiaBusca').addEventListener('input', exibirFamilias);
 $('familiaResponsavel').addEventListener('change', () => {
@@ -86,7 +142,7 @@ $('familiaResponsavel').addEventListener('change', () => {
     if (p) $('familiaEndereco').value = `${p.endereco}, Nº ${p.numero} — ${p.bairro}`;
 });
 function cancelarFamilia() {
-    familiaEditando = null; $('familiaForm').reset(); $('familiaResponsavel').disabled = false;
+    familiaEditando = null; $('familiaCadastroManual').open = false; $('familiaForm').reset(); $('familiaResponsavel').disabled = false;
     $('salvarFamilia').textContent = 'Criar família'; $('cancelarFamilia').hidden = true; atualizarResponsaveis();
 }
 $('cancelarFamilia').addEventListener('click', cancelarFamilia);
@@ -106,6 +162,7 @@ $('familiasList').addEventListener('click', event => {
     if (b.dataset.familia) abrirFamilia(b.dataset.familia);
     if (b.dataset.riscoFamilia) abrirRisco('familias', b.dataset.riscoFamilia);
     if (b.dataset.editarFamilia) {
+        $('familiaCadastroManual').open = true;
         familiaEditando = familias.find(f => f._id === b.dataset.editarFamilia);
         atualizarResponsaveis(); $('familiaNome').value = familiaEditando.nome; $('familiaFicha').value = familiaEditando.numeroFicha || '';
         $('familiaMicroarea').value = familiaEditando.microarea || ''; $('familiaEndereco').value = familiaEditando.endereco || '';
@@ -135,6 +192,8 @@ $('familiaDetalhe').addEventListener('click', async event => {
         if (b.id === 'novoMembro') {
             cancelarEdicao(); const familia = familias.find(f => f._id === familiaAberta);
             novoFamiliarContexto = { familiaId: familiaAberta, parentesco: $('membroParentesco').value };
+            $('responsavelFamilia').disabled = true;
+            $('responsavelFamiliaAjuda').textContent = 'Esta pessoa será adicionada como membro da família aberta. O responsável já está definido.';
             const resp = pessoasFamilia.find(p => p._id === String(familia.responsavelId));
             if (resp) { $('endereco').value = resp.endereco; $('numero').value = resp.numero; $('bairro').value = resp.bairro; }
             $('formTitle').textContent = `Novo familiar — ${familia.nome}`; $('cancelBtn').hidden = false; $('nomeCompleto').focus(); window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -144,11 +203,13 @@ $('familiaDetalhe').addEventListener('click', async event => {
 });
 window.vincularNovoFamiliar = async function (cadastro) {
     const contexto = novoFamiliarContexto; novoFamiliarContexto = null;
+    familiaDoNovoMembro = contexto?.familiaId || null;
     if (!contexto) return;
     const r = await requisicao(`/api/familias/${contexto.familiaId}/membros`, { method: 'POST', body: JSON.stringify({ cadastroId: cadastro._id, parentesco: contexto.parentesco }) });
     if (!r.ok) alert(`A ficha foi salva, mas não foi vinculada à família: ${await mensagem(r)}. Use “Vincular cadastro existente” para concluir.`);
 };
-window.cancelarNovoFamiliar = () => { novoFamiliarContexto = null; };
+window.familiaDoNovoMembro = () => familiaDoNovoMembro;
+window.cancelarNovoFamiliar = () => { novoFamiliarContexto = null; familiaDoNovoMembro = null; };
 
 function exibirHistorico(avaliacoes) {
     $('riscoAtual').innerHTML = resumoRisco(avaliacoes);

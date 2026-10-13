@@ -102,6 +102,10 @@
                     <label for="outrasDoencas">Outras doenças</label>
                     <textarea id="outrasDoencas" rows="2" placeholder="Digite outras doenças, se houver"></textarea>
                 </div>
+                <div class="notice">
+                    <label class="confirmacao"><input id="responsavelFamilia" type="checkbox"> <strong>Responsável pela família</strong></label>
+                    <p id="responsavelFamiliaAjuda" class="help-text">Marque para criar a família com esta ficha. Ao salvar, será aberta a área para adicionar os membros.</p>
+                </div>
                 <div class="form-buttons">
                     <button type="submit" id="submitBtn" class="btn-primary"><i class="fas fa-save"></i> Salvar cadastro</button>
                     <button type="button" id="cancelBtn" class="btn-cancel" hidden>Cancelar</button>
@@ -134,6 +138,8 @@
         <section id="familiasSection" class="card full-width">
             <h2>Famílias e responsáveis</h2>
             <p class="help-text">Vincule fichas individuais à família sem duplicar cadastros. Uma pessoa pertence a uma única família na sua lista.</p>
+            <details id="familiaCadastroManual">
+                <summary>Criar família manualmente ou editar seus dados</summary>
             <form id="familiaForm">
                 <div class="form-row">
                     <div class="form-group"><label for="familiaNome">Nome da família *</label><input id="familiaNome" maxlength="150" placeholder="Ex.: Família Silva" required></div>
@@ -146,6 +152,7 @@
                 </div>
                 <div class="form-buttons"><button class="btn-primary" id="salvarFamilia">Criar família</button><button type="button" id="cancelarFamilia" class="btn-cancel" hidden>Cancelar edição</button></div>
             </form>
+            </details>
             <p id="familiaMensagem" role="status" class="help-text"></p>
             <div class="form-group"><label for="familiaBusca">Buscar família, responsável, membro ou microárea</label><input id="familiaBusca" placeholder="Digite para buscar"></div>
             <div id="familiasList"></div>
@@ -186,7 +193,7 @@
     </dialog>
 </div>
 <script src="risco.js?v=1"></script>
-<script src="script.js?v=16"></script>
-<script src="organizacao.js?v=1"></script>
+<script src="script.js?v=17"></script>
+<script src="organizacao.js?v=2"></script>
 </body>
 </html>

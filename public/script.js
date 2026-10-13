@@ -185,20 +185,38 @@ $('cadastroForm').addEventListener('submit', async event => {
     event.preventDefault();
     if ($('dataNascimento').value.length !== 10) return alert('Digite a data no formato DD/MM/AAAA.');
     $('submitBtn').disabled = true;
-    let salvo = false;
+    let cadastroSalvo = null;
+    const sessao = token;
+    const abrirMembros = $('responsavelFamilia').checked;
     try {
         const response = await requisicao(editandoId ? `/api/cadastros/${editandoId}` : '/api/cadastros', { method: editandoId ? 'PUT' : 'POST', body: JSON.stringify(dadosFormulario()) });
         if (!response.ok) throw new Error(await mensagem(response));
-        const cadastro = await response.json(); salvo = true;
-        await window.vincularNovoFamiliar?.(cadastro);
-        cancelarEdicao(); await buscarCadastros(); await window.carregarOrganizacao?.();
+        cadastroSalvo = await response.json();
+        if (sessao !== token) return;
+        await window.vincularNovoFamiliar?.(cadastroSalvo);
+        if (abrirMembros) {
+            await window.abrirFamiliaDoResponsavel(cadastroSalvo);
+            cancelarEdicao();
+            await buscarCadastros();
+        } else {
+            const familiaDoNovoMembro = window.familiaDoNovoMembro?.();
+            cancelarEdicao(); await buscarCadastros(); await window.carregarOrganizacao?.();
+            if (familiaDoNovoMembro) window.focarMembrosFamilia?.(familiaDoNovoMembro);
+        }
     } catch (error) {
-        if (salvo) { cancelarEdicao(); buscarCadastros(); window.carregarOrganizacao?.(); alert('A ficha foi salva. Não foi possível concluir o vínculo ou atualizar a tela: ' + error.message); }
-        else alert(error.message);
+        if (sessao !== token) return;
+        if (cadastroSalvo) {
+            // A nova tentativa atualiza a ficha já salva, em vez de cadastrar outra pessoa.
+            editandoId = cadastroSalvo._id;
+            $('formTitle').textContent = 'Ficha salva — concluir organização da família';
+            $('cancelBtn').hidden = false;
+            await buscarCadastros();
+            alert('A ficha do paciente já foi salva. Não foi possível concluir a família: ' + error.message + '. Tente salvar novamente para concluir, sem recadastrar o paciente.');
+        } else alert(error.message);
     } finally { $('submitBtn').disabled = false; }
 });
-function editarCadastro(id) { window.cancelarNovoFamiliar?.(); const c = cadastros.find(item => item._id === id); if (!c) return; editandoId = id; $('nomeCompleto').value = c.nomeCompleto; $('dataNascimento').value = formatarData(c.dataNascimento); $('cpf').value = c.cpf; $('telefone').value = c.telefone; $('endereco').value = c.endereco; $('numero').value = c.numero; $('bairro').value = c.bairro; $('sexo').value = c.sexo; $('criancaDeZeroANove').value = c.criancaDeZeroANove !== undefined ? String(c.criancaDeZeroANove) : ''; $('gestante').value = c.gestante !== undefined ? String(c.gestante) : ''; $('acamado').value = c.acamado !== undefined ? String(c.acamado) : ''; $('domiciliado').value = c.domiciliado !== undefined ? String(c.domiciliado) : ''; $('outrasDoencas').value = c.outrasDoencas || ''; document.querySelectorAll('input[name="doenca"]').forEach(item => item.checked = c.doencasPreexistentes?.includes(item.value)); $('formTitle').textContent = 'Editar Cadastro'; $('cancelBtn').hidden = false; window.scrollTo({ top: 0, behavior: 'smooth' }); }
-function cancelarEdicao() { window.cancelarNovoFamiliar?.(); editandoId = null; $('cadastroForm').reset(); $('formTitle').textContent = 'Novo Cadastro'; $('cancelBtn').hidden = true; }
+function editarCadastro(id) { window.cancelarNovoFamiliar?.(); const c = cadastros.find(item => item._id === id); if (!c) return; editandoId = id; $('nomeCompleto').value = c.nomeCompleto; $('dataNascimento').value = formatarData(c.dataNascimento); $('cpf').value = c.cpf; $('telefone').value = c.telefone; $('endereco').value = c.endereco; $('numero').value = c.numero; $('bairro').value = c.bairro; $('sexo').value = c.sexo; $('criancaDeZeroANove').value = c.criancaDeZeroANove !== undefined ? String(c.criancaDeZeroANove) : ''; $('gestante').value = c.gestante !== undefined ? String(c.gestante) : ''; $('acamado').value = c.acamado !== undefined ? String(c.acamado) : ''; $('domiciliado').value = c.domiciliado !== undefined ? String(c.domiciliado) : ''; $('outrasDoencas').value = c.outrasDoencas || ''; document.querySelectorAll('input[name="doenca"]').forEach(item => item.checked = c.doencasPreexistentes?.includes(item.value)); $('formTitle').textContent = 'Editar Cadastro'; $('cancelBtn').hidden = false; window.prepararResponsavelNoFormulario?.(c); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function cancelarEdicao() { window.cancelarNovoFamiliar?.(); editandoId = null; $('cadastroForm').reset(); $('formTitle').textContent = 'Novo Cadastro'; $('cancelBtn').hidden = true; window.prepararResponsavelNoFormulario?.(); }
 async function excluirCadastro(id) { if (!confirm('Arquivar este cadastro? Você poderá restaurá-lo na lista de arquivados.')) return; const response = await requisicao(`/api/cadastros/${id}`, { method: 'DELETE' }); if (!response.ok) return alert(await mensagem(response)); buscarCadastros(); window.carregarOrganizacao?.(); }
 async function restaurarCadastro(id) {
     try {

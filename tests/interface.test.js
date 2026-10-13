@@ -59,6 +59,7 @@ const elemento = id => dom.window.document.getElementById(id);
 const enviar = id => elemento(id).dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
 
 test('interface cria família e vincula pessoa existente', async () => {
+    elemento('familiaCadastroManual').open = true;
     elemento('familiaNome').value = 'Família de Teste';
     elemento('familiaFicha').value = '123';
     elemento('familiaResponsavel').value = responsavel.id;
@@ -105,6 +106,78 @@ test('interface registra avaliação, mostra histórico e filtra paciente avalia
     elemento('filtroRiscoNivel').value = 'alto'; elemento('filtroRiscoNivel').dispatchEvent(new dom.window.Event('change'));
     assert.equal(elemento('cadastrosList').querySelectorAll('.cadastro-item').length, 1);
     elemento('fecharRisco').click();
+});
+
+test('marcar responsável no novo paciente cria família e abre membros; editar reaproveita a mesma família', async () => {
+    elemento('filtroRiscoNivel').value = ''; elemento('filtroRiscoNivel').dispatchEvent(new dom.window.Event('change'));
+    elemento('cancelBtn').click();
+    for (const [id, valor] of Object.entries({ nomeCompleto: 'Responsável pelo Cadastro', dataNascimento: '01/01/1990', cpf: '000.000.000-04', telefone: '(00) 00000-0000', sexo: 'M', criancaDeZeroANove: 'false', gestante: 'false', acamado: 'false', domiciliado: 'false', endereco: 'Rua do Responsável', numero: '2', bairro: 'Bairro Teste' })) elemento(id).value = valor;
+    elemento('responsavelFamilia').checked = true;
+    elemento('responsavelFamilia').dispatchEvent(new dom.window.Event('change'));
+    assert.equal(elemento('submitBtn').textContent, 'Salvar e adicionar membros');
+    enviar('cadastroForm');
+    await esperar(() => !elemento('submitBtn').disabled, 'criar responsável e abrir membros');
+    const pessoa = await Cadastro.findOne({ nomeCompleto: 'Responsável pelo Cadastro' });
+    assert.ok(pessoa);
+    assert.equal(await Cadastro.countDocuments({}), 4);
+    assert.equal(await Familia.countDocuments({}), 2);
+    const familia = await Familia.findOne({ responsavelId: pessoa._id });
+    assert.equal(familia.membros.length, 1);
+    assert.match(elemento('familiaDetalhe').textContent, /Família de Responsável pelo Cadastro/);
+    assert.equal(dom.window.document.activeElement.id, 'membroBusca');
+    elemento('cadastrosList').querySelector(`[data-editar="${pessoa.id}"]`).click();
+    assert.equal(elemento('responsavelFamilia').checked, true);
+    enviar('cadastroForm');
+    await esperar(() => !elemento('submitBtn').disabled, 'editar responsável existente');
+    assert.equal(await Familia.countDocuments({}), 2);
+    assert.equal(await Cadastro.countDocuments({}), 4);
+});
+
+test('editar paciente antigo e marcar responsável reaproveita ficha; pesquisa membro por nome sem acento e CPF', async () => {
+    const base = { usuarioId: agente.id, dataNascimento: '1990-01-01', endereco: 'Rua Teste', numero: '1', bairro: 'Teste', telefone: '00000000000', sexo: 'F', criancaDeZeroANove: false, gestante: false };
+    const antigo = await Cadastro.create({ ...base, nomeCompleto: 'Paciente Antigo', cpf: '000.000.000-05' });
+    const membro = await Cadastro.create({ ...base, nomeCompleto: 'Pessoa Buscável', cpf: '000.000.000-06' });
+    await dom.window.buscarCadastros(); await dom.window.carregarOrganizacao();
+    elemento('cadastrosList').querySelector(`[data-editar="${antigo.id}"]`).click();
+    assert.equal(elemento('responsavelFamilia').checked, false);
+    elemento('responsavelFamilia').checked = true; enviar('cadastroForm');
+    await esperar(() => !elemento('submitBtn').disabled, 'criar família pela edição');
+    assert.equal(await Cadastro.countDocuments({}), 6);
+    const familia = await Familia.findOne({ responsavelId: antigo._id }); assert.ok(familia);
+    elemento('membroBusca').value = 'buscavel'; elemento('membroBusca').dispatchEvent(new dom.window.Event('input'));
+    assert.equal(elemento('membroExistente').options.length, 2);
+    assert.equal(elemento('membroExistente').options[1].value, membro.id);
+    elemento('membroBusca').value = '00000000006'; elemento('membroBusca').dispatchEvent(new dom.window.Event('input'));
+    assert.equal(elemento('membroExistente').options[1].value, membro.id);
+    elemento('membroExistente').value = membro.id; elemento('membroParentesco').value = 'Filho'; elemento('vincularMembro').click();
+    await esperar(() => elemento('familiaDetalhe').querySelectorAll('.membro-item').length === 2, 'vincular resultado da pesquisa');
+    assert.equal(await Cadastro.countDocuments({}), 6);
+});
+
+test('falha ao criar família permite repetir salvamento sem duplicar paciente', async () => {
+    elemento('cancelBtn').click();
+    for (const [id, valor] of Object.entries({ nomeCompleto: 'Responsável com Nova Tentativa', dataNascimento: '01/01/1990', cpf: '000.000.000-07', telefone: '(00) 00000-0000', sexo: 'M', criancaDeZeroANove: 'false', gestante: 'false', acamado: 'false', domiciliado: 'false', endereco: 'Rua Teste', numero: '2', bairro: 'Teste' })) elemento(id).value = valor;
+    elemento('responsavelFamilia').checked = true;
+    const fetchOriginal = dom.window.fetch;
+    let falhou = false;
+    dom.window.fetch = (rota, opcoes) => {
+        if (!falhou && rota === '/api/familias' && opcoes.method === 'POST') {
+            falhou = true;
+            return Promise.resolve(new Response(JSON.stringify({ message: 'Falha simulada da família' }), { status: 503, headers: { 'Content-Type': 'application/json' } }));
+        }
+        return fetchOriginal(rota, opcoes);
+    };
+    enviar('cadastroForm');
+    await esperar(() => !elemento('submitBtn').disabled, 'tratar falha da família');
+    assert.equal(await Cadastro.countDocuments({}), 7);
+    assert.equal(alertas.length, 1); assert.match(alertas[0], /já foi salva/); alertas.length = 0;
+    assert.equal(elemento('responsavelFamilia').checked, true);
+    dom.window.fetch = fetchOriginal;
+    enviar('cadastroForm');
+    await esperar(() => !elemento('submitBtn').disabled, 'repetir vínculo com ficha existente');
+    assert.equal(await Cadastro.countDocuments({}), 7);
+    const pessoa = await Cadastro.findOne({ nomeCompleto: 'Responsável com Nova Tentativa' });
+    assert.ok(await Familia.findOne({ responsavelId: pessoa._id }));
 });
 
 test('sair limpa fichas, famílias, contexto de edição e histórico sensível', () => {
