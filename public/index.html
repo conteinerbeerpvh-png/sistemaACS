@@ -36,8 +36,13 @@
         </div>
         <div class="user-menu"><span id="usuarioLogado"></span><button type="button" id="logoutBtn" class="btn-cancel">Sair</button></div>
     </header>
+    <nav class="app-nav" aria-label="Menu principal">
+        <button type="button" data-tela="pacientes" aria-current="page">Pacientes</button>
+        <button type="button" data-tela="cadastro">Novo cadastro</button>
+        <button type="button" data-tela="familias">Famílias</button>
+    </nav>
     <main>
-        <div class="card">
+        <div class="card app-panel" data-panel="cadastro" hidden>
             <h2><i class="fas fa-user-plus"></i> <span id="formTitle">Novo Cadastro</span></h2>
             <form id="cadastroForm">
                 <div class="ocr-section">
@@ -113,7 +118,7 @@
             </form>
         </div>
 
-        <div class="card">
+        <div class="card app-panel" data-panel="pacientes">
             <h2 id="listaPacientes"><i class="fas fa-search"></i> Meus Cadastros</h2>
             <div class="search-container">
                 <input id="searchInput" placeholder="Buscar por nome, CPF, telefone, bairro ou endereço">
@@ -134,8 +139,9 @@
             </div>
 
             <div id="cadastrosList" class="cadastros-list"></div>
+            <div id="pacientesPaginacao" class="pagination"></div>
         </div>
-        <section id="familiasSection" class="card full-width">
+        <section id="familiasSection" class="card full-width app-panel" data-panel="familias" hidden>
             <h2>Famílias e responsáveis</h2>
             <p class="help-text">Vincule fichas individuais à família sem duplicar cadastros. Uma pessoa pertence a uma única família na sua lista.</p>
             <details id="familiaCadastroManual">
@@ -156,6 +162,7 @@
             <p id="familiaMensagem" role="status" class="help-text"></p>
             <div class="form-group"><label for="familiaBusca">Buscar família, responsável, membro ou microárea</label><input id="familiaBusca" placeholder="Digite para buscar"></div>
             <div id="familiasList"></div>
+            <div id="familiasPaginacao" class="pagination"></div>
             <section id="familiaDetalhe" hidden></section>
         </section>
     </main>
@@ -191,9 +198,14 @@
         <p class="help-text">Para corrigir uma avaliação, adicione um novo registro com a justificativa. O registro anterior será mantido.</p>
         <div id="riscoHistorico"></div>
     </dialog>
+    <dialog id="cartaoDialog" aria-labelledby="cartaoTitulo">
+        <div class="dialog-header"><h2 id="cartaoTitulo">Cartão da família - frente e verso</h2><button type="button" id="fecharCartao" class="btn-cancel">Fechar</button></div>
+        <div id="cartaoVisual"></div>
+    </dialog>
 </div>
 <script src="risco.js?v=1"></script>
-<script src="script.js?v=17"></script>
-<script src="organizacao.js?v=2"></script>
+<script src="script.js?v=18"></script>
+<script src="organizacao.js?v=3"></script>
+<script src="cartao.js?v=1"></script>
 </body>
 </html>

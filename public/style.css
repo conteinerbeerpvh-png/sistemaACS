@@ -514,3 +514,24 @@ main {
 
 #familiaCadastroManual { margin: 15px 0; }
 #familiaCadastroManual summary { cursor: pointer; color: #4f62c8; font-weight: 600; margin-bottom: 15px; }
+
+main { display: block; }
+.app-nav { position: sticky; top: 0; z-index: 10; display: flex; gap: 8px; padding: 10px 0; margin-bottom: 15px; background: #685fe0; border-radius: 10px; }
+.app-nav button { flex: 1; border: 0; border-radius: 8px; padding: 12px 8px; color: #fff; background: transparent; font-size: 15px; cursor: pointer; }
+.app-nav button[aria-current="page"] { background: #fff; color: #4f46a5; font-weight: bold; }
+.cadastros-list { max-height: none; overflow: visible; }
+.patient-details summary { cursor: pointer; color: #4f62c8; margin: 10px 0; }
+.pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 14px 0; }
+@media (max-width: 768px) { header { margin-bottom: 12px; } header p { font-size: 14px; } .cadastro-actions { flex-direction: row; } .cadastro-actions button { width: auto; flex: 1; padding: 9px 6px; } .app-nav button { font-size: 13px; } }
+.cartao-face { border: 4px double #222; padding: 12px; margin: 18px 0; background: white; color: #111; overflow-wrap: anywhere; }
+.cartao-header { color: #111; margin: 0 0 12px; gap: 8px; flex-direction: row; }
+.cartao-header img { width: 54px; max-height: 64px; object-fit: contain; }
+.cartao-header div { flex: 1; font-size: 12px; }
+.cartao-header p { font-size: 11px; margin: 5px 0; opacity: 1; }
+.linha-cartao { display: flex; gap: 10px; border-top: 1px solid #222; padding: 10px 3px; font-size: 13px; }
+.linha-cartao strong { min-width: 58px; }
+.cartao-face small { display: block; border-top: 1px solid #222; padding-top: 10px; text-align: center; font-size: 10px; }
+.cartao-tabela { border-collapse: collapse; width: 100%; margin-top: 10px; table-layout: fixed; }
+.cartao-tabela td, .cartao-tabela th { border: 1px solid #222; padding: 8px 5px; height: 36px; font-size: 12px; }
+.cartao-tabela th:first-child, .cartao-tabela td:first-child { width: 36%; }
+@media (max-width: 450px) { .cartao-header img { width: 42px; } .cartao-header div { font-size: 10px; } .cartao-header p { font-size: 9px; } #cartaoDialog { padding: 12px; } .cartao-tabela td { font-size: 10px; } }

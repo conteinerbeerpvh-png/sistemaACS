@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const Familia = require('../models/familia');
 const Cadastro = require('../models/cadastro');
 const { validarAvaliacao } = require('../lib/avaliacoes');
+const { sincronizarFamilia, aplicarContatoNasFichas, enderecoCompleto } = require('../lib/dadosFamilia');
+const { dadosCartao, gerarCartaoPDF } = require('../lib/cartaoFamilia');
 
 function organizacao(autenticar) {
     const router = express.Router();
@@ -22,11 +24,39 @@ function organizacao(autenticar) {
     }
     const consultaFamilia = (req, id) => ({ _id: id, usuarioId: req.usuario.id });
 
+    router.get('/familias/:id/cartao', async (req, res) => {
+        try {
+            if (!idValido(req.params.id)) return res.status(400).json({ message: 'Família inválida.' });
+            const dados = await dadosCartao(req.params.id, req.usuario.id);
+            if (!dados) return res.status(404).json({ message: 'Família não encontrada.' });
+            res.json(dados);
+        } catch (_) { res.status(503).json({ message: 'Não foi possível preparar o cartão.' }); }
+    });
+    router.get('/familias/:id/cartao.pdf', async (req, res) => {
+        try {
+            if (!idValido(req.params.id)) return res.status(400).json({ message: 'Família inválida.' });
+            const dados = await dadosCartao(req.params.id, req.usuario.id);
+            if (!dados) return res.status(404).json({ message: 'Família não encontrada.' });
+            const arquivo = await gerarCartaoPDF(dados);
+            res.set('Content-Type', 'application/pdf');
+            res.set('Content-Disposition', `attachment; filename="cartao-familia-${dados.id.slice(-8)}.pdf"`);
+            res.send(arquivo);
+        } catch (_) { res.status(503).json({ message: 'Não foi possível gerar o PDF do cartão.' }); }
+    });
+
     router.get('/familias', async (req, res) => {
         try {
             const familias = await Familia.find({ usuarioId: req.usuario.id }).sort({ nome: 1 }).populate({
-                path: 'membros.cadastroId', select: 'nomeCompleto cpf dataNascimento endereco numero bairro arquivado', match: { usuarioId: req.usuario.id }
+                path: 'membros.cadastroId', select: 'nomeCompleto cpf telefone dataNascimento endereco numero bairro arquivado', match: { usuarioId: req.usuario.id }
             }).lean();
+            const membros = familias.flatMap(f => f.membros.map(m => m.cadastroId).filter(Boolean));
+            const corrigidos = await aplicarContatoNasFichas(membros, req.usuario.id);
+            const porId = new Map(corrigidos.map(p => [String(p._id), p]));
+            for (const f of familias) {
+                for (const m of f.membros) if (m.cadastroId) m.cadastroId = porId.get(String(m.cadastroId._id));
+                const resp = f.membros.find(m => String(m.cadastroId?._id) === String(f.responsavelId))?.cadastroId;
+                if (resp) f.endereco = enderecoCompleto(resp);
+            }
             res.json(familias);
         } catch (_) { res.status(503).json({ message: 'Não foi possível carregar as famílias.' }); }
     });
@@ -39,6 +69,7 @@ function organizacao(autenticar) {
             const familia = await Familia.create({ ...dadosFamilia(req.body), usuarioId: req.usuario.id,
                 responsavelId: responsavel._id, membros: [{ cadastroId: responsavel._id, parentesco: '' }]
             });
+            await sincronizarFamilia(familia._id, req.usuario.id);
             res.status(201).json(familia);
         } catch (error) { falha(res, error); }
     });
@@ -47,6 +78,7 @@ function organizacao(autenticar) {
             if (!idValido(req.params.id)) return res.status(400).json({ message: 'Família inválida.' });
             const familia = await Familia.findOneAndUpdate(consultaFamilia(req, req.params.id), { $set: dadosFamilia(req.body) }, { new: true, runValidators: true });
             if (!familia) return res.status(404).json({ message: 'Família não encontrada.' });
+            await sincronizarFamilia(familia._id, req.usuario.id);
             res.json(familia);
         } catch (error) { falha(res, error); }
     });
@@ -65,6 +97,7 @@ function organizacao(autenticar) {
                 const existente = await Familia.findOne(consultaFamilia(req, req.params.id)).lean();
                 return res.status(existente ? 409 : 404).json({ message: existente ? 'Este cadastro já está nesta família.' : 'Família não encontrada.' });
             }
+            await sincronizarFamilia(familia._id, req.usuario.id);
             res.status(201).json(familia);
         } catch (error) { falha(res, error); }
     });
@@ -79,6 +112,7 @@ function organizacao(autenticar) {
                 if (existente && String(existente.responsavelId) === req.params.cadastroId) return res.status(409).json({ message: 'Escolha outro responsável antes de desvincular o atual.' });
                 return res.status(404).json({ message: 'Família ou membro não encontrado.' });
             }
+            await sincronizarFamilia(familia._id, req.usuario.id);
             res.json(familia);
         } catch (error) { falha(res, error); }
     });
@@ -89,6 +123,7 @@ function organizacao(autenticar) {
             const familia = await Familia.findOneAndUpdate({ ...consultaFamilia(req, req.params.id), 'membros.cadastroId': req.params.cadastroId },
                 { $set: { 'membros.$.parentesco': req.body.parentesco.trim() } }, { new: true, runValidators: true });
             if (!familia) return res.status(404).json({ message: 'Família ou membro não encontrado.' });
+            await sincronizarFamilia(familia._id, req.usuario.id);
             res.json(familia);
         } catch (error) { falha(res, error); }
     });
@@ -98,6 +133,7 @@ function organizacao(autenticar) {
             const familia = await Familia.findOneAndUpdate({ ...consultaFamilia(req, req.params.id), 'membros.cadastroId': req.body.cadastroId },
                 { $set: { responsavelId: req.body.cadastroId } }, { new: true, runValidators: true });
             if (!familia) return res.status(404).json({ message: 'Escolha um membro desta família como responsável.' });
+            await sincronizarFamilia(familia._id, req.usuario.id);
             res.json(familia);
         } catch (error) { falha(res, error); }
     });

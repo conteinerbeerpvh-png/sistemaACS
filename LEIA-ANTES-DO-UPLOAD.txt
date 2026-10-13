@@ -35,7 +35,18 @@ ESTRATIFICAÇÃO
 A classificação é registrada pelo profissional responsável. Esta versão não calcula risco clínico automaticamente. O cálculo depende do protocolo definido pela equipe.
 
 VALIDAÇÃO
-19 testes automatizados passaram, incluindo API com MongoDB temporário e fluxos da interface com JSDOM. O deploy de produção e o layout visual em navegador não foram verificados.
+26 testes automatizados passaram, incluindo API com MongoDB temporário e fluxos da interface com JSDOM. O deploy de produção e o layout visual em navegador não foram verificados.
 
 Para uso local: npm ci, npm test, npm start.
 Consulte README.md para detalhes.
+
+ATUALIZAÇÃO V3
+- Menu Pacientes / Novo cadastro / Famílias, sem mostrar todas as seções juntas.
+- Listas paginadas e detalhes clínicos recolhidos.
+- Telefone, rua, número e bairro são herdados do responsável e sincronizados com os membros.
+- Cartão automático frente e verso com marcas oficiais, equipe MONTE SINAI e ACS DIANA FREIRE.
+- CPF no verso e continuação automática para famílias com mais de oito pessoas.
+- Opções Ver cartão, Baixar PDF e Enviar por WhatsApp.
+- Quando o compartilhamento de arquivos não for suportado, anexe manualmente o PDF baixado na conversa.
+- Envie também as novas pastas public/assets (marcas e fontes), os módulos lib e o package-lock.json atualizado. A hospedagem precisa instalar a nova dependência pdfkit na próxima publicação.
+- O PDF foi renderizado e conferido visualmente. A interface foi testada com JSDOM; o deploy e um navegador móvel real não foram verificados.

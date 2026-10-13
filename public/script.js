@@ -29,6 +29,7 @@ function mostrarApp() {
   $('appScreen').hidden = false;
   $('appScreen').style.display = 'block';
   $('usuarioLogado').textContent = `Olá, ${usuario.nome}`;
+  window.mostrarTela?.('pacientes');
   buscarCadastros();
   window.carregarOrganizacao?.();
 }
@@ -102,6 +103,7 @@ async function buscarCadastros() {
 function exibirCadastros() {
     const visiveis = window.cadastrosVisiveis ? window.cadastrosVisiveis() : cadastros;
     $('resultCount').textContent = `Exibindo ${visiveis.length} de ${cadastros.length} cadastro(s)`;
+    const pagina = window.paginarPacientes ? window.paginarPacientes(visiveis) : visiveis;
     if (!visiveis.length) {
         $('cadastrosList').innerHTML = '<p class="loading">Nenhum cadastro encontrado.</p>';
         if ($('actionsBar')) $('actionsBar').hidden = true;
@@ -110,7 +112,7 @@ function exibirCadastros() {
 
     if ($('actionsBar')) $('actionsBar').hidden = false;
 
-    $('cadastrosList').innerHTML = visiveis.map(c => {
+    $('cadastrosList').innerHTML = pagina.map(c => {
         const doencas = [...(c.doencasPreexistentes || []), c.outrasDoencas].filter(Boolean).join(', ') || 'Nenhuma';
         return `<article class="cadastro-item">
             <h3 style="display:flex; align-items:center; gap:10px;">
@@ -118,12 +120,14 @@ function exibirCadastros() {
                 <span><i class="fas fa-user"></i> ${texto(c.nomeCompleto)}</span>
             </h3>
             <p><strong>CPF:</strong> ${texto(c.cpf)}</p>
+            <details class="patient-details"><summary>Ver dados e condições de saúde</summary>
             <p><strong>Telefone:</strong> ${texto(c.telefone)}</p>
             <p><strong>Sexo:</strong> ${c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : 'Não informado'} · <strong>Criança 0–9:</strong> ${c.criancaDeZeroANove ? 'Sim' : 'Não'} · <strong>Gestante:</strong> ${c.gestante ? 'Sim' : 'Não'}</p>
             <p><strong>Acamado:</strong> ${c.acamado ? 'Sim' : 'Não'} · <strong>Domiciliado:</strong> ${c.domiciliado ? 'Sim' : 'Não'}</p>
             <p><strong>Endereço:</strong> ${texto(c.endereco)}, Nº ${texto(c.numero)} — ${texto(c.bairro)}</p>
             <p><strong>Doenças:</strong> ${texto(doencas)}</p>
             <p><strong>Nascimento:</strong> ${formatarData(c.dataNascimento)}</p>
+            </details>
             ${window.extrasFicha ? window.extrasFicha(c) : ''}
             <div class="cadastro-actions">
                 ${c.arquivado ? `<button class="btn-edit" data-restaurar="${texto(c._id)}">Restaurar cadastro</button>` : `
@@ -202,6 +206,7 @@ $('cadastroForm').addEventListener('submit', async event => {
             const familiaDoNovoMembro = window.familiaDoNovoMembro?.();
             cancelarEdicao(); await buscarCadastros(); await window.carregarOrganizacao?.();
             if (familiaDoNovoMembro) window.focarMembrosFamilia?.(familiaDoNovoMembro);
+            else window.mostrarTela?.('pacientes');
         }
     } catch (error) {
         if (sessao !== token) return;
@@ -215,7 +220,7 @@ $('cadastroForm').addEventListener('submit', async event => {
         } else alert(error.message);
     } finally { $('submitBtn').disabled = false; }
 });
-function editarCadastro(id) { window.cancelarNovoFamiliar?.(); const c = cadastros.find(item => item._id === id); if (!c) return; editandoId = id; $('nomeCompleto').value = c.nomeCompleto; $('dataNascimento').value = formatarData(c.dataNascimento); $('cpf').value = c.cpf; $('telefone').value = c.telefone; $('endereco').value = c.endereco; $('numero').value = c.numero; $('bairro').value = c.bairro; $('sexo').value = c.sexo; $('criancaDeZeroANove').value = c.criancaDeZeroANove !== undefined ? String(c.criancaDeZeroANove) : ''; $('gestante').value = c.gestante !== undefined ? String(c.gestante) : ''; $('acamado').value = c.acamado !== undefined ? String(c.acamado) : ''; $('domiciliado').value = c.domiciliado !== undefined ? String(c.domiciliado) : ''; $('outrasDoencas').value = c.outrasDoencas || ''; document.querySelectorAll('input[name="doenca"]').forEach(item => item.checked = c.doencasPreexistentes?.includes(item.value)); $('formTitle').textContent = 'Editar Cadastro'; $('cancelBtn').hidden = false; window.prepararResponsavelNoFormulario?.(c); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function editarCadastro(id) { window.cancelarNovoFamiliar?.(); const c = cadastros.find(item => item._id === id); if (!c) return; editandoId = id; $('nomeCompleto').value = c.nomeCompleto; $('dataNascimento').value = formatarData(c.dataNascimento); $('cpf').value = c.cpf; $('telefone').value = c.telefone; $('endereco').value = c.endereco; $('numero').value = c.numero; $('bairro').value = c.bairro; $('sexo').value = c.sexo; $('criancaDeZeroANove').value = c.criancaDeZeroANove !== undefined ? String(c.criancaDeZeroANove) : ''; $('gestante').value = c.gestante !== undefined ? String(c.gestante) : ''; $('acamado').value = c.acamado !== undefined ? String(c.acamado) : ''; $('domiciliado').value = c.domiciliado !== undefined ? String(c.domiciliado) : ''; $('outrasDoencas').value = c.outrasDoencas || ''; document.querySelectorAll('input[name="doenca"]').forEach(item => item.checked = c.doencasPreexistentes?.includes(item.value)); window.mostrarTela?.('cadastro'); $('formTitle').textContent = 'Editar Cadastro'; $('cancelBtn').hidden = false; window.prepararResponsavelNoFormulario?.(c); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function cancelarEdicao() { window.cancelarNovoFamiliar?.(); editandoId = null; $('cadastroForm').reset(); $('formTitle').textContent = 'Novo Cadastro'; $('cancelBtn').hidden = true; window.prepararResponsavelNoFormulario?.(); }
 async function excluirCadastro(id) { if (!confirm('Arquivar este cadastro? Você poderá restaurá-lo na lista de arquivados.')) return; const response = await requisicao(`/api/cadastros/${id}`, { method: 'DELETE' }); if (!response.ok) return alert(await mensagem(response)); buscarCadastros(); window.carregarOrganizacao?.(); }
 async function restaurarCadastro(id) {

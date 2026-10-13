@@ -16,6 +16,9 @@ const agente = { id: new mongoose.Types.ObjectId().toString(), nome: 'Agente Fic
 const pasta = path.join(__dirname, '../public');
 const alertas = [];
 const erros = [];
+const arquivosCompartilhados = [];
+const downloads = [];
+const conversas = [];
 let responsavel, existente;
 
 async function esperar(condicao, descricao) {
@@ -41,17 +44,23 @@ before(async () => {
     dom.window.alert = m => alertas.push(m);
     dom.window.confirm = () => true;
     dom.window.scrollTo = () => {};
+    dom.window.URL.createObjectURL = () => 'blob:cartao-teste';
+    dom.window.URL.revokeObjectURL = () => {};
+    dom.window.navigator.canShare = () => true;
+    dom.window.navigator.share = async dados => { arquivosCompartilhados.push(dados); };
+    dom.window.open = (...args) => { conversas.push(args); return null; };
+    dom.window.HTMLAnchorElement.prototype.click = function () { if (this.download) downloads.push(this.download); };
     dom.window.addEventListener('error', e => erros.push(e.message));
     dom.window.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
     dom.window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
     dom.window.localStorage.setItem('acs_token', jwt.sign(agente, secret));
     dom.window.localStorage.setItem('acs_usuario', JSON.stringify({ nome: agente.nome, usuario: agente.usuario }));
-    for (const arquivo of ['risco.js', 'script.js', 'organizacao.js']) vm.runInContext(fs.readFileSync(path.join(pasta, arquivo), 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
+    for (const arquivo of ['risco.js', 'script.js', 'organizacao.js', 'cartao.js']) vm.runInContext(fs.readFileSync(path.join(pasta, arquivo), 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
     await esperar(() => dom.window.document.querySelectorAll('#familiaResponsavel option').length === 3, 'carregar responsáveis');
 });
 after(async () => {
-    if (dom) dom.window.close();
     if (server) await new Promise(r => server.close(r));
+    if (dom) dom.window.close();
     await mongoose.disconnect();
     if (mongo) await mongo.stop();
 });
@@ -59,6 +68,7 @@ const elemento = id => dom.window.document.getElementById(id);
 const enviar = id => elemento(id).dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
 
 test('interface cria família e vincula pessoa existente', async () => {
+    dom.window.document.querySelector('[data-tela="familias"]').click();
     elemento('familiaCadastroManual').open = true;
     elemento('familiaNome').value = 'Família de Teste';
     elemento('familiaFicha').value = '123';
@@ -82,6 +92,7 @@ test('novo familiar herda endereço e é vinculado depois de salvar, sem duplica
     assert.match(elemento('formTitle').textContent, /Novo familiar/);
     assert.equal(elemento('endereco').value, 'Rua Fictícia');
     assert.equal(elemento('numero').value, '10');
+    assert.equal(elemento('telefone').value, responsavel.telefone);
     for (const [id, valor] of Object.entries({ nomeCompleto: 'Novo Familiar Fictício', dataNascimento: '01/01/2010', cpf: '000.000.000-03', telefone: '(00) 00000-0000', sexo: 'M', criancaDeZeroANove: 'false', gestante: 'false', acamado: 'false', domiciliado: 'false' })) elemento(id).value = valor;
     enviar('cadastroForm');
     await esperar(() => elemento('familiaDetalhe').querySelectorAll('.membro-item').length === 3, 'salvar novo familiar e vínculo');
@@ -180,7 +191,51 @@ test('falha ao criar família permite repetir salvamento sem duplicar paciente',
     assert.ok(await Familia.findOne({ responsavelId: pessoa._id }));
 });
 
-test('sair limpa fichas, famílias, contexto de edição e histórico sensível', () => {
+test('menu mostra uma tela por vez e listas de pacientes são paginadas', async () => {
+    dom.window.document.querySelector('[data-tela="pacientes"]').click();
+    assert.equal(dom.window.document.querySelectorAll('[data-panel]:not([hidden])').length, 1);
+    assert.equal(dom.window.document.querySelector('[data-panel="pacientes"]').hidden, false);
+    elemento('filtroRiscoNivel').value = ''; elemento('filtroRiscoNivel').dispatchEvent(new dom.window.Event('change'));
+    await dom.window.buscarCadastros();
+    assert.equal(elemento('cadastrosList').querySelectorAll('.cadastro-item').length, 5);
+    assert.match(elemento('pacientesPaginacao').textContent, /Página 1 de 2/);
+    [...elemento('pacientesPaginacao').querySelectorAll('button')].find(b => b.textContent === 'Próxima').click();
+    assert.equal(elemento('cadastrosList').querySelectorAll('.cadastro-item').length, 2);
+    dom.window.document.querySelector('[data-tela="familias"]').click();
+    assert.equal(dom.window.document.querySelectorAll('[data-panel]:not([hidden])').length, 1);
+});
+
+test('cartão é preparado automaticamente, mostra frente e verso e compartilha PDF pelo menu do celular', async () => {
+    await esperar(() => elemento('whatsappCartao') && !elemento('whatsappCartao').disabled, 'preparar PDF da família');
+    elemento('verCartao').click();
+    await esperar(() => elemento('cartaoDialog').open, 'abrir cartão');
+    assert.equal(elemento('cartaoVisual').querySelectorAll('.cartao-face').length, 2);
+    assert.match(elemento('cartaoVisual').textContent, /MONTE SINAI/); assert.match(elemento('cartaoVisual').textContent, /DIANA FREIRE/);
+    assert.match(elemento('cartaoVisual').textContent, /CPF/);
+    elemento('fecharCartao').click(); elemento('whatsappCartao').click();
+    await esperar(() => arquivosCompartilhados.length === 1, 'compartilhar arquivo');
+    assert.equal(arquivosCompartilhados[0].files[0].type, 'application/pdf');
+    assert.match(arquivosCompartilhados[0].files[0].name, /\.pdf$/);
+    await esperar(() => !elemento('whatsappCartao').disabled, 'concluir compartilhamento');
+});
+
+test('quando o aparelho não compartilha arquivos, baixa PDF e abre conversa para anexar manualmente', async () => {
+    const pessoa = await Cadastro.findOne({ nomeCompleto: 'Responsável com Nova Tentativa' });
+    await Cadastro.updateOne({ _id: pessoa._id }, { $set: { telefone: '(69) 99999-1111' } });
+    await dom.window.carregarOrganizacao();
+    await esperar(() => elemento('whatsappCartao') && !elemento('whatsappCartao').disabled, 'atualizar cartão com telefone');
+    dom.window.navigator.canShare = () => false;
+    elemento('whatsappCartao').click();
+    await esperar(() => downloads.length === 1, 'baixar PDF no fallback');
+    assert.match(downloads[0], /\.pdf$/);
+    assert.match(conversas[0][0], /^https:\/\/wa\.me\/5569999991111\?text=/);
+    assert.match(elemento('cartaoStatus').textContent, /Anexe esse arquivo/);
+    assert.equal(arquivosCompartilhados.length, 1);
+    dom.window.navigator.canShare = () => true;
+    await esperar(() => !elemento('whatsappCartao').disabled, 'concluir fallback');
+});
+
+test('sair limpa fichas, famílias, contexto de edição e histórico sensível', async () => {
     elemento('logoutBtn').click();
     assert.equal(elemento('appScreen').hidden, true);
     assert.equal(elemento('cadastrosList').children.length, 0);

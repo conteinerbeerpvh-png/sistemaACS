@@ -68,3 +68,25 @@ npm test
 Os testes usam MongoDB temporário, dados fictícios e um servidor HTTP local. `mongodb-memory-server` baixa um binário de testes no primeiro uso, sem acessar o MongoDB de produção. A interface é exercitada com JSDOM, incluindo criar família, vincular pessoa existente, cadastrar novo familiar, registrar risco e encerrar a sessão. Isso não substitui uma inspeção visual em navegador e celular.
 
 Antes de atualizar produção, faça backup do MongoDB, confirme `JWT_SECRET` e valide a versão com dados fictícios. O projeto não possui integração ou homologação com e-SUS APS.
+
+## Navegação no celular
+
+O menu fixa o acesso a **Pacientes**, **Novo cadastro** e **Famílias**. Apenas uma dessas telas é mostrada de cada vez. As listas têm cinco registros por página, e os dados clínicos individuais ficam em um bloco recolhido. Editar um paciente ou cadastrar um membro abre a tela de cadastro; salvar um responsável abre a área da família.
+
+## Dados compartilhados da família
+
+Telefone, endereço, número da casa e bairro seguem a ficha do responsável. Ao vincular uma pessoa, os quatro campos são copiados automaticamente, inclusive para pessoas já cadastradas. Alterações na ficha do responsável são propagadas aos membros. Os dados clínicos, CPF, nome, nascimento e histórico de cada pessoa permanecem individuais.
+
+Na edição de um membro, os campos de contato familiar ficam bloqueados e a API utiliza os dados do responsável. Faça mudanças de telefone ou residência na ficha do responsável. Ao cadastrar um novo familiar, esses quatro campos já vêm preenchidos, mas sua identificação e condições de saúde precisam ser informadas. As consultas também usam os dados atuais do responsável para exibir famílias antigas que tenham contatos divergentes; os próximos vínculos e alterações atualizam os documentos relacionados no banco.
+
+## Cartão da família
+
+Cada família possui automaticamente **Cartão**, **Ver cartão**, **Baixar PDF** e **Enviar por WhatsApp**. Ao abrir a família, o cartão frente e verso é preparado com os dados atuais, sem precisar preencher outra ficha. O arquivo PDF é gerado sob autenticação; não há link público nem token em URL. O cartão não inclui doenças ou avaliações de risco.
+
+A frente segue o modelo fornecido: Prefeitura Municipal de Porto Velho, Secretaria Municipal de Saúde, **USF NOVA FLORESTA**, data de criação da família, equipe **MONTE SINAI**, ACS **DIANA FREIRE**, responsável, endereço, número e bairro. O verso lista nome e **CPF** de todos os membros, incluindo o responsável. Os textos fixos ficam em `lib/cartaoFamilia.js`. O PDF mede 148 x 105 mm (A6 horizontal); a primeira página é a frente e a segunda é o verso. Para mais de oito membros, são acrescentados versos de continuação, sem omitir pessoas.
+
+O PDF incorpora as fontes para manter a legibilidade em celulares e impressão. As marcas vêm de fontes oficiais, documentadas em `public/assets/FONTES.md`. A aparência segue a referência apresentada; o projeto continua sem integração ou homologação com SUS/Prefeitura.
+
+Em dispositivos com suporte ao compartilhamento de arquivos, **Enviar por WhatsApp** abre o menu do aparelho com o PDF anexado; escolha WhatsApp e o destinatário. A escolha do aplicativo é feita pelo sistema operacional. Use HTTPS para esse recurso. Quando não houver suporte, o botão baixa o PDF e abre a conversa do telefone familiar com uma mensagem: anexe o arquivo baixado manualmente. O link do WhatsApp não consegue anexar um arquivo por conta própria. Cancelar o compartilhamento não envia mensagem. As ações de envio dependem do usuário; o sistema não dispara mensagens automaticamente.
+
+Ao sair, o conteúdo e os arquivos temporários de cartão são removidos da sessão da interface. Não são gravados em uma pasta pública do servidor. Atualizações da família invalidam o cartão preparado na tela, gerando um PDF com os dados atuais.

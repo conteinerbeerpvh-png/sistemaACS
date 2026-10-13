@@ -6,6 +6,9 @@ let novoFamiliarContexto = null;
 let familiaDoNovoMembro = null;
 let riscoContexto = null;
 const risco = window.RiscoACS;
+let paginaPacientes = 1;
+let paginaFamilias = 1;
+const porPagina = 5;
 
 function resumoRisco(registros) {
     const atuais = risco.ultimas(registros || []);
@@ -22,7 +25,7 @@ window.extrasFicha = extrasFicha;
 window.resumoRisco = resumoRisco;
 function filtrosRisco() { return { tipo: $('filtroRiscoTipo').value, nivel: $('filtroRiscoNivel').value, prazo: $('filtroRiscoPrazo').value }; }
 window.cadastrosVisiveis = () => cadastros.filter(c => risco.corresponde(c.avaliacoesRisco || [], filtrosRisco()));
-for (const id of ['filtroRiscoTipo', 'filtroRiscoNivel', 'filtroRiscoPrazo']) $(id).addEventListener('change', exibirCadastros);
+for (const id of ['filtroRiscoTipo', 'filtroRiscoNivel', 'filtroRiscoPrazo']) $(id).addEventListener('change', () => { paginaPacientes = 1; exibirCadastros(); });
 
 async function carregarOrganizacao() {
     if (!token) return false;
@@ -50,6 +53,8 @@ function prepararResponsavelNoFormulario(cadastro) {
     $('responsavelFamiliaAjuda').textContent = jaResponsavel
         ? 'Este paciente já é responsável pela família. Ao salvar, a área de membros será aberta. Para trocar o responsável, use a área da família.'
         : 'Marque para criar a família com esta ficha. Ao salvar, será aberta a área para adicionar os membros.';
+    for (const campo of ['telefone', 'endereco', 'numero', 'bairro']) $(campo).disabled = Boolean(familia && !jaResponsavel);
+    if (familia && !jaResponsavel) $('responsavelFamiliaAjuda').textContent = 'Telefone e endereço seguem os dados do responsável. Altere esses dados na ficha dele.';
     atualizarBotaoCadastro();
 }
 function atualizarBotaoCadastro() {
@@ -58,6 +63,7 @@ function atualizarBotaoCadastro() {
 window.prepararResponsavelNoFormulario = prepararResponsavelNoFormulario;
 $('responsavelFamilia').addEventListener('change', atualizarBotaoCadastro);
 function focarMembrosFamilia(id) {
+    window.mostrarTela('familias');
     abrirFamilia(id);
     $('familiaDetalhe').scrollIntoView?.({ behavior: 'smooth', block: 'start' });
     $('membroBusca')?.focus({ preventScroll: true });
@@ -88,6 +94,8 @@ window.abrirFamiliaDoResponsavel = async function (cadastro) {
 window.limparOrganizacao = function () {
     familias = []; pessoasFamilia = []; familiaAberta = null; familiaEditando = null;
     novoFamiliarContexto = null; familiaDoNovoMembro = null; riscoContexto = null;
+    window.limparCartoes?.();
+    paginaPacientes = 1; paginaFamilias = 1;
     $('familiasList').replaceChildren(); $('familiaDetalhe').replaceChildren(); $('familiaDetalhe').hidden = true;
     $('familiaForm').reset(); $('riscoForm').reset(); $('riscoHistorico').replaceChildren(); $('riscoAtual').replaceChildren();
     if ($('riscoDialog').open) $('riscoDialog').close();
@@ -104,9 +112,12 @@ function atualizarResponsaveis() {
 function exibirFamilias() {
     const termo = $('familiaBusca').value.toLocaleLowerCase('pt-BR');
     const lista = familias.filter(f => [f.nome, f.numeroFicha, f.microarea, ...f.membros.map(m => m.cadastroId?.nomeCompleto)].some(v => String(v || '').toLocaleLowerCase('pt-BR').includes(termo)));
-    $('familiasList').innerHTML = lista.length ? lista.map(f => {
+    const total = Math.max(1, Math.ceil(lista.length / porPagina));
+    paginaFamilias = Math.min(paginaFamilias, total);
+    paginacao('familiasPaginacao', paginaFamilias, total, nova => { paginaFamilias = nova; exibirFamilias(); });
+    $('familiasList').innerHTML = lista.length ? lista.slice((paginaFamilias - 1) * porPagina, paginaFamilias * porPagina).map(f => {
         const resp = f.membros.find(m => String(m.cadastroId?._id) === String(f.responsavelId))?.cadastroId;
-        return `<article class="familia-item"><h3>${texto(f.nome)}</h3><p>Responsável: ${texto(resp?.nomeCompleto || 'Cadastro indisponível')} · ${f.membros.length} membro(s)</p><p>Ficha: ${texto(f.numeroFicha || 'não informada')} · Microárea: ${texto(f.microarea || 'não informada')}</p>${resumoRisco(f.avaliacoesRisco)}<div class="cadastro-actions"><button type="button" class="btn-edit" data-familia="${texto(f._id)}">Abrir família</button><button type="button" class="btn-print" data-risco-familia="${texto(f._id)}">Risco familiar</button><button type="button" class="btn-clear" data-editar-familia="${texto(f._id)}">Editar família</button></div></article>`;
+        return `<article class="familia-item"><h3>${texto(f.nome)}</h3><p>Responsável: ${texto(resp?.nomeCompleto || 'Cadastro indisponível')} · ${f.membros.length} membro(s)</p><p>Ficha: ${texto(f.numeroFicha || 'não informada')} · Microárea: ${texto(f.microarea || 'não informada')}</p>${resumoRisco(f.avaliacoesRisco)}<div class="cadastro-actions"><button type="button" class="btn-edit" data-familia="${texto(f._id)}">Abrir família</button><button type="button" class="btn-secondary" data-cartao-familia="${texto(f._id)}">Cartão</button><button type="button" class="btn-print" data-risco-familia="${texto(f._id)}">Risco familiar</button><button type="button" class="btn-clear" data-editar-familia="${texto(f._id)}">Editar família</button></div></article>`;
     }).join('') : '<p class="help-text">Nenhuma família encontrada. Cadastre primeiro o responsável na ficha individual.</p>';
 }
 function abrirFamilia(id) {
@@ -116,6 +127,8 @@ function abrirFamilia(id) {
     const disponiveis = pessoasFamilia.filter(p => !familiaDaPessoa(p._id));
     $('familiaDetalhe').hidden = false;
     $('familiaDetalhe').innerHTML = `<h3>${texto(f.nome)}</h3><p class="help-text">${texto(f.endereco || 'Endereço não informado')}</p>
+        <section class="notice"><strong>Cartão da família</strong><p id="cartaoStatus">Preparando cartão frente e verso...</p><div class="cadastro-actions"><button id="verCartao" type="button" class="btn-edit" disabled>Ver cartão</button><button id="baixarCartao" type="button" class="btn-print" disabled>Baixar PDF</button><button id="whatsappCartao" type="button" class="btn-whatsapp" disabled>Enviar por WhatsApp</button><button id="atualizarCartao" type="button" class="btn-clear">Atualizar cartão</button></div><small>Se o celular abrir o menu de compartilhamento, escolha WhatsApp. Quando não houver suporte a anexos, baixe o PDF e anexe na conversa.</small></section>
+        <p class="help-text">Telefone, endereço, bairro e número da casa dos membros seguem os dados do responsável.</p>
         <div class="form-group"><label for="membroBusca">Pesquisar pessoa já cadastrada</label><input id="membroBusca" placeholder="Nome, CPF ou telefone" autocomplete="off"></div>
         <div class="form-row"><div class="form-group"><label for="membroExistente">Adicionar cadastro existente</label><select id="membroExistente"><option value="">Selecione...</option>${disponiveis.map(p => `<option value="${texto(p._id)}">${texto(p.nomeCompleto)} · ${texto(p.cpf)}</option>`).join('')}</select></div><div class="form-group"><label for="membroParentesco">Vínculo/parentesco com o responsável</label><input id="membroParentesco" maxlength="100" placeholder="Ex.: filho, cônjuge ou outro vínculo"></div></div>
         <div class="cadastro-actions"><button type="button" id="vincularMembro" class="btn-edit">Vincular cadastro existente</button><button type="button" id="novoMembro" class="btn-secondary">Cadastrar novo familiar</button></div>
@@ -125,6 +138,7 @@ function abrirFamilia(id) {
             const responsavel = String(f.responsavelId) === p._id;
             return `<article class="membro-item"><strong>${texto(p.nomeCompleto)}</strong> · ${responsavel ? 'Responsável' : texto(m.parentesco || 'Vínculo não informado')}${p.arquivado ? ' · Cadastro arquivado' : ''}<p>CPF: ${texto(p.cpf)}</p><div class="cadastro-actions"><button class="btn-print" data-risco-pessoa="${texto(p._id)}" type="button">Risco individual</button>${!responsavel ? `<button class="btn-clear" data-vinculo="${texto(p._id)}" type="button">Editar vínculo</button><button class="btn-edit" data-responsavel="${texto(p._id)}" type="button">Tornar responsável</button><button class="btn-delete" data-desvincular="${texto(p._id)}" type="button">Desvincular</button>` : ''}</div></article>`;
         }).join('')}</div>`;
+    window.prepararCartaoFamilia?.(f._id);
     $('membroBusca').addEventListener('input', () => {
         const normalizar = valor => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
         const termo = normalizar($('membroBusca').value.trim());
@@ -135,7 +149,7 @@ function abrirFamilia(id) {
         $('membroExistente').innerHTML = `<option value="">${encontrados.length ? 'Selecione...' : 'Nenhuma pessoa disponível encontrada'}</option>` + encontrados.map(p => `<option value="${texto(p._id)}">${texto(p.nomeCompleto)} · ${texto(p.cpf)}</option>`).join('');
     });
 }
-$('familiaBusca').addEventListener('input', exibirFamilias);
+$('familiaBusca').addEventListener('input', () => { paginaFamilias = 1; exibirFamilias(); });
 $('familiaResponsavel').addEventListener('change', () => {
     if (familiaEditando || $('familiaEndereco').value) return;
     const p = pessoasFamilia.find(p => p._id === $('familiaResponsavel').value);
@@ -161,6 +175,7 @@ $('familiasList').addEventListener('click', event => {
     const b = event.target.closest('button'); if (!b) return;
     if (b.dataset.familia) abrirFamilia(b.dataset.familia);
     if (b.dataset.riscoFamilia) abrirRisco('familias', b.dataset.riscoFamilia);
+    if (b.dataset.cartaoFamilia) { abrirFamilia(b.dataset.cartaoFamilia); window.abrirCartaoFamilia?.(b.dataset.cartaoFamilia); }
     if (b.dataset.editarFamilia) {
         $('familiaCadastroManual').open = true;
         familiaEditando = familias.find(f => f._id === b.dataset.editarFamilia);
@@ -179,6 +194,7 @@ $('familiaDetalhe').addEventListener('click', async event => {
     const b = event.target.closest('button'); if (!b) return;
     b.disabled = true;
     try {
+        if (['verCartao', 'baixarCartao', 'whatsappCartao', 'atualizarCartao'].includes(b.id)) { await window.acaoCartaoFamilia?.(b.id, familiaAberta); return; }
         if (b.id === 'vincularMembro') { if (!$('membroExistente').value) throw new Error('Selecione um cadastro existente.'); await acaoFamilia('/membros', 'POST', { cadastroId: $('membroExistente').value, parentesco: $('membroParentesco').value }); }
         if (b.dataset.responsavel && confirm('Definir esta pessoa como responsável pela família? Revise depois o parentesco dos outros membros em relação ao novo responsável.')) await acaoFamilia('/responsavel', 'PUT', { cadastroId: b.dataset.responsavel });
         if (b.dataset.vinculo) {
@@ -195,7 +211,8 @@ $('familiaDetalhe').addEventListener('click', async event => {
             $('responsavelFamilia').disabled = true;
             $('responsavelFamiliaAjuda').textContent = 'Esta pessoa será adicionada como membro da família aberta. O responsável já está definido.';
             const resp = pessoasFamilia.find(p => p._id === String(familia.responsavelId));
-            if (resp) { $('endereco').value = resp.endereco; $('numero').value = resp.numero; $('bairro').value = resp.bairro; }
+            if (resp) { $('telefone').value = resp.telefone || ''; $('endereco').value = resp.endereco; $('numero').value = resp.numero; $('bairro').value = resp.bairro; }
+            window.mostrarTela('cadastro');
             $('formTitle').textContent = `Novo familiar — ${familia.nome}`; $('cancelBtn').hidden = false; $('nomeCompleto').focus(); window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     } catch (error) { alert(error.message); }
@@ -240,3 +257,33 @@ $('riscoForm').addEventListener('submit', async event => {
     finally { $('salvarRisco').disabled = false; }
 });
 if (token && usuario) carregarOrganizacao();
+
+function mostrarTela(tela) {
+    for (const painel of document.querySelectorAll('[data-panel]')) painel.hidden = painel.dataset.panel !== tela;
+    for (const botao of document.querySelectorAll('[data-tela]')) {
+        if (botao.dataset.tela === tela) botao.setAttribute('aria-current', 'page');
+        else botao.removeAttribute('aria-current');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.mostrarTela = mostrarTela;
+for (const botao of document.querySelectorAll('[data-tela]')) botao.addEventListener('click', () => {
+    if (botao.dataset.tela === 'cadastro') cancelarEdicao();
+    mostrarTela(botao.dataset.tela);
+});
+function paginacao(id, atual, total, mudar) {
+    $(id).replaceChildren();
+    if (total <= 1) return;
+    for (const [titulo, proxima, bloqueado] of [['Anterior', atual - 1, atual === 1], ['Próxima', atual + 1, atual === total]]) {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'btn-clear'; b.textContent = titulo; b.disabled = bloqueado;
+        b.addEventListener('click', () => mudar(proxima)); $(id).append(b);
+        if (titulo === 'Anterior') { const textoPagina = document.createElement('span'); textoPagina.textContent = `Página ${atual} de ${total}`; $(id).append(textoPagina); }
+    }
+}
+window.paginarPacientes = lista => {
+    const total = Math.max(1, Math.ceil(lista.length / porPagina));
+    paginaPacientes = Math.min(paginaPacientes, total);
+    paginacao('pacientesPaginacao', paginaPacientes, total, nova => { paginaPacientes = nova; exibirCadastros(); $('listaPacientes').scrollIntoView?.({ behavior: 'smooth' }); });
+    return lista.slice((paginaPacientes - 1) * porPagina, paginaPacientes * porPagina);
+};
+mostrarTela('pacientes');

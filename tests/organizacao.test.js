@@ -177,3 +177,61 @@ test('classificação atual respeita data clínica e filtros não combinam risco
     assert.equal(risco.corresponde([], { nivel: 'baixo' }), false);
     assert.equal(risco.corresponde([], { nivel: 'nao_avaliado' }), true);
 });
+
+test('telefone e endereço do responsável são copiados ao vincular e propagados ao editar, sem cruzar usuários', async () => {
+    const resp = await pessoa(agenteA, { telefone: '(69) 99999-1111', endereco: 'Rua da Família', numero: '7', bairro: 'Nova Floresta' });
+    const membro = await pessoa(agenteA, { telefone: '12345678901', endereco: 'Outro endereço', numero: '99', bairro: 'Outro bairro' });
+    const estrangeiro = await pessoa(agenteB, { numero: '88' });
+    const f = await familia(resp);
+    await api(`/familias/${f._id}/membros`, 'POST', { cadastroId: membro._id, parentesco: 'Filho' });
+    let atual = await Cadastro.findById(membro._id);
+    for (const campo of ['telefone', 'endereco', 'numero', 'bairro']) assert.equal(atual[campo], resp[campo]);
+    const atualizado = { ...resp, telefone: '(69) 99999-2222', endereco: 'Rua Nova', numero: '200', bairro: 'Bairro Novo' };
+    assert.equal((await api(`/cadastros/${resp._id}`, 'PUT', atualizado)).status, 200);
+    atual = await Cadastro.findById(membro._id);
+    for (const campo of ['telefone', 'endereco', 'numero', 'bairro']) assert.equal(atual[campo], atualizado[campo]);
+    assert.equal((await Cadastro.findById(estrangeiro._id)).numero, '88');
+    assert.match((await Familia.findById(f._id)).endereco, /200/);
+});
+
+test('membro usa contato familiar canônico; sua edição preserva dados clínicos e históricos', async () => {
+    const resp = await pessoa(), membro = await pessoa(); const f = await familia(resp);
+    await api(`/familias/${f._id}/membros`, 'POST', { cadastroId: membro._id, parentesco: 'Filho' });
+    await api(`/cadastros/${membro._id}/risco`, 'POST', avaliacao);
+    const r = await api(`/cadastros/${membro._id}`, 'PUT', { ...membro, nomeCompleto: 'Nome Individual Editado', telefone: '123', endereco: 'Não deve substituir', numero: '500', bairro: 'Outra região' });
+    assert.equal(r.status, 200);
+    assert.equal(r.dados.nomeCompleto, 'Nome Individual Editado');
+    for (const campo of ['telefone', 'endereco', 'numero', 'bairro']) assert.equal(r.dados[campo], resp[campo]);
+    assert.equal(r.dados.avaliacoesRisco.length, 1);
+    assert.equal(r.dados.acamado, true);
+});
+
+test('cartão automático usa dados atuais, equipe e ACS definidos e acesso privado', async () => {
+    const resp = await pessoa(); const f = await familia(resp); const membro = await pessoa();
+    await api(`/familias/${f._id}/membros`, 'POST', { cadastroId: membro._id, parentesco: 'Filho' });
+    await api(`/cadastros/${resp._id}`, 'PUT', { ...resp, numero: '300' });
+    const cartao = await api(`/familias/${f._id}/cartao`);
+    assert.equal(cartao.status, 200); assert.equal(cartao.dados.equipe, 'MONTE SINAI'); assert.equal(cartao.dados.acs, 'DIANA FREIRE');
+    assert.equal(cartao.dados.unidade, 'USF NOVA FLORESTA'); assert.equal(cartao.dados.numero, '300');
+    assert.equal(cartao.dados.membros.length, 2); assert.equal(cartao.dados.membros[1].cpf, membro.cpf);
+    assert.equal(cartao.dados.avaliacoesRisco, undefined);
+    assert.equal((await api(`/familias/${f._id}/cartao`, 'GET', undefined, agenteB)).status, 404);
+    assert.equal((await api(`/familias/${f._id}/cartao`, 'GET', undefined, null)).status, 401);
+    const pdf = await fetch(url + `/api/familias/${f._id}/cartao.pdf`, { headers: { Authorization: 'Bearer ' + jwt.sign(agenteA, secret) } });
+    assert.equal(pdf.status, 200); assert.equal(pdf.headers.get('content-type'), 'application/pdf'); assert.equal(pdf.headers.get('cache-control'), 'no-store');
+    const bytes = Buffer.from(await pdf.arrayBuffer()); assert.equal(bytes.subarray(0, 4).toString(), '%PDF');
+    assert.equal((bytes.toString('latin1').match(/\/Type \/Page\b/g) || []).length, 2);
+    assert.equal((await api(`/familias/${f._id}/cartao.pdf`, 'GET', undefined, agenteB)).status, 404);
+});
+
+test('cartão acrescenta versos quando a família ultrapassa oito pessoas, sem omitir membros', async () => {
+    const resp = await pessoa(); const f = await familia(resp);
+    for (let i = 0; i < 8; i++) {
+        const m = await pessoa(); await api(`/familias/${f._id}/membros`, 'POST', { cadastroId: m._id, parentesco: 'Familiar' });
+    }
+    assert.equal((await api(`/familias/${f._id}/cartao`)).dados.membros.length, 9);
+    const pdf = await fetch(url + `/api/familias/${f._id}/cartao.pdf`, { headers: { Authorization: 'Bearer ' + jwt.sign(agenteA, secret) } });
+    assert.equal(pdf.status, 200);
+    const bytes = Buffer.from(await pdf.arrayBuffer());
+    assert.equal((bytes.toString('latin1').match(/\/Type \/Page\b/g) || []).length, 3);
+});
