@@ -110,11 +110,17 @@
         </div>
 
         <div class="card">
-            <h2><i class="fas fa-search"></i> Meus Cadastros</h2>
+            <h2 id="listaPacientes"><i class="fas fa-search"></i> Meus Cadastros</h2>
             <div class="search-container">
                 <input id="searchInput" placeholder="Buscar por nome, CPF, telefone, bairro ou endereço">
                 <button id="buscarBtn" class="btn-secondary">Buscar</button>
                 <button id="limparBtn" class="btn-clear">Limpar</button>
+            </div>
+            <div class="form-group"><label for="listaEstado">Mostrar cadastros</label><select id="listaEstado"><option value="ativos">Ativos</option><option value="arquivados">Arquivados (permite restaurar)</option></select></div>
+            <div class="risk-filters form-row">
+                <div class="form-group"><label for="filtroRiscoTipo">Tipo de risco</label><select id="filtroRiscoTipo"><option value="">Todos os tipos</option><option value="geral">Avaliação geral</option><option value="hipertensao">Hipertensão</option><option value="diabetes">Diabetes</option><option value="cardiovascular">Cardiovascular</option><option value="gestacao">Gestação</option></select></div>
+                <div class="form-group"><label for="filtroRiscoNivel">Classificação</label><select id="filtroRiscoNivel"><option value="">Todas</option><option value="nao_avaliado">Não avaliado</option><option value="baixo">Baixo</option><option value="moderado">Moderado</option><option value="alto">Alto</option><option value="muito_alto">Muito alto</option></select></div>
+                <div class="form-group"><label for="filtroRiscoPrazo">Reavaliação</label><select id="filtroRiscoPrazo"><option value="">Todas</option><option value="atrasada">Prazo vencido</option><option value="hoje">Hoje</option><option value="sem_data">Sem data definida</option></select></div>
             </div>
             <div id="statsBar" class="stats-bar" hidden><span id="resultCount"></span></div>
             
@@ -125,8 +131,62 @@
 
             <div id="cadastrosList" class="cadastros-list"></div>
         </div>
+        <section id="familiasSection" class="card full-width">
+            <h2>Famílias e responsáveis</h2>
+            <p class="help-text">Vincule fichas individuais à família sem duplicar cadastros. Uma pessoa pertence a uma única família na sua lista.</p>
+            <form id="familiaForm">
+                <div class="form-row">
+                    <div class="form-group"><label for="familiaNome">Nome da família *</label><input id="familiaNome" maxlength="150" placeholder="Ex.: Família Silva" required></div>
+                    <div class="form-group"><label for="familiaFicha">Número da ficha familiar</label><input id="familiaFicha" maxlength="50"></div>
+                    <div class="form-group"><label for="familiaMicroarea">Microárea</label><input id="familiaMicroarea" maxlength="50"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="familiaResponsavel">Responsável já cadastrado *</label><select id="familiaResponsavel" required><option value="">Carregando cadastros...</option></select></div>
+                    <div class="form-group"><label for="familiaEndereco">Endereço da família</label><input id="familiaEndereco" maxlength="250"></div>
+                </div>
+                <div class="form-buttons"><button class="btn-primary" id="salvarFamilia">Criar família</button><button type="button" id="cancelarFamilia" class="btn-cancel" hidden>Cancelar edição</button></div>
+            </form>
+            <p id="familiaMensagem" role="status" class="help-text"></p>
+            <div class="form-group"><label for="familiaBusca">Buscar família, responsável, membro ou microárea</label><input id="familiaBusca" placeholder="Digite para buscar"></div>
+            <div id="familiasList"></div>
+            <section id="familiaDetalhe" hidden></section>
+        </section>
     </main>
+    <dialog id="riscoDialog" aria-labelledby="riscoTitulo">
+        <div class="dialog-header"><h2 id="riscoTitulo">Estratificação de risco</h2><button type="button" id="fecharRisco" class="btn-cancel">Fechar</button></div>
+        <p id="riscoNome" class="help-text"></p>
+        <p class="notice">Registre a classificação realizada pelo profissional conforme o protocolo da unidade. Esta versão não calcula escores nem determina prazos. Risco familiar e individual são avaliações separadas.</p>
+        <div id="riscoAtual"></div>
+        <form id="riscoForm">
+            <div class="form-row">
+                <div class="form-group"><label for="riscoTipo">Tipo de avaliação *</label><select id="riscoTipo" required></select></div>
+                <div class="form-group"><label for="riscoNivel">Classificação profissional *</label><select id="riscoNivel" required><option value="">Selecione...</option><option value="baixo">Baixo</option><option value="moderado">Moderado</option><option value="alto">Alto</option><option value="muito_alto">Muito alto</option></select><small>Use somente categorias correspondentes ao protocolo adotado.</small></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label for="riscoData">Data da avaliação *</label><input id="riscoData" type="date" required></div>
+                <div class="form-group"><label for="riscoProxima">Próxima avaliação definida pela equipe</label><input id="riscoProxima" type="date"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label for="riscoProfissional">Profissional responsável pela classificação *</label><input id="riscoProfissional" maxlength="150" required></div>
+                <div class="form-group"><label for="riscoFuncao">Função do profissional *</label><input id="riscoFuncao" maxlength="100" required></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label for="riscoProtocolo">Protocolo utilizado *</label><input id="riscoProtocolo" maxlength="250" required></div>
+                <div class="form-group"><label for="riscoVersao">Versão ou ano *</label><input id="riscoVersao" maxlength="100" required></div>
+            </div>
+            <div class="form-group"><label for="riscoJustificativa">Justificativa e critérios utilizados *</label><textarea id="riscoJustificativa" maxlength="3000" rows="3" required></textarea></div>
+            <div class="form-group"><label for="riscoPlano">Plano de acompanhamento definido pela equipe</label><textarea id="riscoPlano" maxlength="3000" rows="3"></textarea></div>
+            <label class="confirmacao"><input id="riscoConfirmacao" type="checkbox" required> Confirmo que estou registrando a classificação realizada pelo profissional responsável conforme o protocolo informado.</label>
+            <button class="btn-primary" id="salvarRisco">Salvar avaliação no histórico</button>
+            <p id="riscoMensagem" role="status" class="help-text"></p>
+        </form>
+        <h3>Histórico de avaliações</h3>
+        <p class="help-text">Para corrigir uma avaliação, adicione um novo registro com a justificativa. O registro anterior será mantido.</p>
+        <div id="riscoHistorico"></div>
+    </dialog>
 </div>
-<script src="script.js?v=15"></script>
+<script src="risco.js?v=1"></script>
+<script src="script.js?v=16"></script>
+<script src="organizacao.js?v=1"></script>
 </body>
 </html>

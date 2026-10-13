@@ -1,0 +1,34 @@
+SISTEMA ACS — FAMÍLIAS E ESTRATIFICAÇÃO DE RISCO
+
+Repositório de destino:
+https://github.com/conteinerbeerpvh-png/sistemaACS
+
+COMO ENVIAR
+1. Extraia o ZIP no computador.
+2. Envie o conteúdo extraído para a raiz do repositório, mantendo as pastas lib, models, public, routs e tests.
+3. Substitua os arquivos de mesmo nome pelos arquivos deste pacote e confirme o commit no GitHub.
+4. Não envie apenas o ZIP fechado: isso não atualiza o código que o servidor executa.
+5. Se a hospedagem estiver conectada ao repositório, acompanhe o deploy após o commit. Caso não tenha deploy automático, publique a nova versão pela sua hospedagem.
+
+ANTES DA PUBLICAÇÃO
+- Faça backup do MongoDB.
+- Mantenha MONGODB_URI configurada na hospedagem.
+- Configure JWT_SECRET com uma chave exclusiva de pelo menos 32 caracteres. A chave antiga e pública de fallback foi removida.
+- Não envie senhas, tokens ou o arquivo .env ao GitHub. Este pacote não contém credenciais de produção.
+
+O QUE FOI INCLUÍDO
+- Famílias com responsável, ficha, microárea, endereço e membros.
+- Vínculo a cadastros existentes sem duplicação e cadastro de novo familiar.
+- Troca do responsável, edição de vínculo e desvinculação sem apagar a ficha.
+- Avaliações individuais e de vulnerabilidade familiar, com protocolo, justificativa e histórico.
+- Arquivamento e restauração de fichas avulsas.
+- Proteção de vínculos e histórico e isolamento por usuário.
+
+ESTRATIFICAÇÃO
+A classificação é registrada pelo profissional responsável. Esta versão não calcula risco clínico automaticamente. O cálculo depende do protocolo definido pela equipe.
+
+VALIDAÇÃO
+16 testes automatizados passaram, incluindo API com MongoDB temporário e fluxos da interface com JSDOM. O deploy de produção e o layout visual em navegador não foram verificados.
+
+Para uso local: npm ci, npm test, npm start.
+Consulte README.md para detalhes.

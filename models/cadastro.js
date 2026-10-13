@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const avaliacaoRiscoSchema = require('./avaliacaoRisco');
 
 const cadastroSchema = new mongoose.Schema({
     usuarioId: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true, index: true },
@@ -25,6 +26,10 @@ const cadastroSchema = new mongoose.Schema({
     criancaDeZeroANove: { type: Boolean, required: true },
     sexo: { type: String, enum: ['M', 'F'], required: true },
     gestante: { type: Boolean, required: true },
+    acamado: { type: Boolean, default: false },
+    domiciliado: { type: Boolean, default: false },
+    arquivado: { type: Boolean, default: false },
+    avaliacoesRisco: { type: [avaliacaoRiscoSchema], default: [] },
     doencasPreexistentes: [{ type: String, enum: ['Hipertensão', 'Diabetes', 'Tuberculose', 'Hanseníase', 'Câncer', 'Asma', 'HIV'] }],
     outrasDoencas: { type: String, trim: true, default: '' },
     cpf: {

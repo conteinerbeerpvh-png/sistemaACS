@@ -1,0 +1,181 @@
+let familias = [];
+let pessoasFamilia = [];
+let familiaAberta = null;
+let familiaEditando = null;
+let novoFamiliarContexto = null;
+let riscoContexto = null;
+const risco = window.RiscoACS;
+
+function resumoRisco(registros) {
+    const atuais = risco.ultimas(registros || []);
+    if (!atuais.length) return '<span class="risk-badge">Risco não avaliado</span>';
+    return atuais.map(a => `<div><span class="risk-badge risk-${a.nivel}">${texto(risco.tipos[a.tipo])}: ${texto(risco.niveis[a.nivel])}</span><small> Avaliado em ${texto(formatarData(a.dataAvaliacao))}</small>${a.proximaAvaliacao ? `<p class="${risco.pendencia(a) === 'atrasada' ? 'prazo-vencido' : ''}">Reavaliar: ${texto(formatarData(a.proximaAvaliacao))}${risco.pendencia(a) === 'atrasada' ? ' — prazo vencido' : risco.pendencia(a) === 'hoje' ? ' — hoje' : ''}</p>` : '<p>Próxima avaliação não informada.</p>'}</div>`).join('');
+}
+function familiaDaPessoa(id) { return familias.find(f => f.membros.some(m => String(m.cadastroId?._id || m.cadastroId) === id)); }
+function extrasFicha(c) {
+    const f = familiaDaPessoa(c._id);
+    const vinculo = f ? `<p><strong>Família:</strong> ${texto(f.nome)}${String(f.responsavelId) === c._id ? ' · Responsável' : ''}</p>` : '<p><strong>Família:</strong> não vinculada</p>';
+    return vinculo + resumoRisco(c.avaliacoesRisco);
+}
+window.extrasFicha = extrasFicha;
+window.resumoRisco = resumoRisco;
+function filtrosRisco() { return { tipo: $('filtroRiscoTipo').value, nivel: $('filtroRiscoNivel').value, prazo: $('filtroRiscoPrazo').value }; }
+window.cadastrosVisiveis = () => cadastros.filter(c => risco.corresponde(c.avaliacoesRisco || [], filtrosRisco()));
+for (const id of ['filtroRiscoTipo', 'filtroRiscoNivel', 'filtroRiscoPrazo']) $(id).addEventListener('change', exibirCadastros);
+
+async function carregarOrganizacao() {
+    if (!token) return;
+    const sessao = token;
+    try {
+        const respostas = await Promise.all([requisicao('/api/familias'), requisicao('/api/cadastros')]);
+        for (const resposta of respostas) if (!resposta.ok) throw new Error(await mensagem(resposta));
+        const [novasFamilias, pessoas] = await Promise.all(respostas.map(r => r.json()));
+        if (sessao !== token) return;
+        familias = novasFamilias;
+        pessoasFamilia = pessoas;
+        atualizarResponsaveis();
+        exibirFamilias();
+        if (familiaAberta) abrirFamilia(familiaAberta);
+        exibirCadastros();
+    } catch (error) { if (sessao === token) $('familiaMensagem').textContent = error.message; }
+}
+window.carregarOrganizacao = carregarOrganizacao;
+window.limparOrganizacao = function () {
+    familias = []; pessoasFamilia = []; familiaAberta = null; familiaEditando = null;
+    novoFamiliarContexto = null; riscoContexto = null;
+    $('familiasList').replaceChildren(); $('familiaDetalhe').replaceChildren(); $('familiaDetalhe').hidden = true;
+    $('familiaForm').reset(); $('riscoForm').reset(); $('riscoHistorico').replaceChildren(); $('riscoAtual').replaceChildren();
+    if ($('riscoDialog').open) $('riscoDialog').close();
+    $('familiaResponsavel').disabled = false; $('salvarFamilia').textContent = 'Criar família'; $('cancelarFamilia').hidden = true;
+    $('familiaMensagem').textContent = ''; $('familiaBusca').value = ''; $('listaEstado').value = 'ativos';
+    for (const id of ['filtroRiscoTipo', 'filtroRiscoNivel', 'filtroRiscoPrazo']) $(id).value = '';
+};
+function atualizarResponsaveis() {
+    const anterior = $('familiaResponsavel').value;
+    $('familiaResponsavel').innerHTML = '<option value="">Selecione uma pessoa cadastrada...</option>' + pessoasFamilia.filter(p => !familiaDaPessoa(p._id) || String(familiaEditando?.responsavelId) === p._id).map(p => `<option value="${texto(p._id)}">${texto(p.nomeCompleto)} · ${texto(p.cpf)}</option>`).join('');
+    $('familiaResponsavel').value = anterior;
+}
+function exibirFamilias() {
+    const termo = $('familiaBusca').value.toLocaleLowerCase('pt-BR');
+    const lista = familias.filter(f => [f.nome, f.numeroFicha, f.microarea, ...f.membros.map(m => m.cadastroId?.nomeCompleto)].some(v => String(v || '').toLocaleLowerCase('pt-BR').includes(termo)));
+    $('familiasList').innerHTML = lista.length ? lista.map(f => {
+        const resp = f.membros.find(m => String(m.cadastroId?._id) === String(f.responsavelId))?.cadastroId;
+        return `<article class="familia-item"><h3>${texto(f.nome)}</h3><p>Responsável: ${texto(resp?.nomeCompleto || 'Cadastro indisponível')} · ${f.membros.length} membro(s)</p><p>Ficha: ${texto(f.numeroFicha || 'não informada')} · Microárea: ${texto(f.microarea || 'não informada')}</p>${resumoRisco(f.avaliacoesRisco)}<div class="cadastro-actions"><button type="button" class="btn-edit" data-familia="${texto(f._id)}">Abrir família</button><button type="button" class="btn-print" data-risco-familia="${texto(f._id)}">Risco familiar</button><button type="button" class="btn-clear" data-editar-familia="${texto(f._id)}">Editar família</button></div></article>`;
+    }).join('') : '<p class="help-text">Nenhuma família encontrada. Cadastre primeiro o responsável na ficha individual.</p>';
+}
+function abrirFamilia(id) {
+    const f = familias.find(f => f._id === id);
+    if (!f) { familiaAberta = null; $('familiaDetalhe').hidden = true; return; }
+    familiaAberta = id;
+    const disponiveis = pessoasFamilia.filter(p => !familiaDaPessoa(p._id));
+    $('familiaDetalhe').hidden = false;
+    $('familiaDetalhe').innerHTML = `<h3>${texto(f.nome)}</h3><p class="help-text">${texto(f.endereco || 'Endereço não informado')}</p>
+        <div class="form-row"><div class="form-group"><label for="membroExistente">Adicionar cadastro existente</label><select id="membroExistente"><option value="">Selecione...</option>${disponiveis.map(p => `<option value="${texto(p._id)}">${texto(p.nomeCompleto)} · ${texto(p.cpf)}</option>`).join('')}</select></div><div class="form-group"><label for="membroParentesco">Vínculo/parentesco com o responsável</label><input id="membroParentesco" maxlength="100" placeholder="Ex.: filho, cônjuge ou outro vínculo"></div></div>
+        <div class="cadastro-actions"><button type="button" id="vincularMembro" class="btn-edit">Vincular cadastro existente</button><button type="button" id="novoMembro" class="btn-secondary">Cadastrar novo familiar</button></div>
+        <div>${f.membros.map(m => {
+            const p = m.cadastroId;
+            if (!p?._id) return '<p class="help-text">Membro indisponível. Verifique o cadastro.</p>';
+            const responsavel = String(f.responsavelId) === p._id;
+            return `<article class="membro-item"><strong>${texto(p.nomeCompleto)}</strong> · ${responsavel ? 'Responsável' : texto(m.parentesco || 'Vínculo não informado')}${p.arquivado ? ' · Cadastro arquivado' : ''}<p>CPF: ${texto(p.cpf)}</p><div class="cadastro-actions"><button class="btn-print" data-risco-pessoa="${texto(p._id)}" type="button">Risco individual</button>${!responsavel ? `<button class="btn-clear" data-vinculo="${texto(p._id)}" type="button">Editar vínculo</button><button class="btn-edit" data-responsavel="${texto(p._id)}" type="button">Tornar responsável</button><button class="btn-delete" data-desvincular="${texto(p._id)}" type="button">Desvincular</button>` : ''}</div></article>`;
+        }).join('')}</div>`;
+}
+$('familiaBusca').addEventListener('input', exibirFamilias);
+$('familiaResponsavel').addEventListener('change', () => {
+    if (familiaEditando || $('familiaEndereco').value) return;
+    const p = pessoasFamilia.find(p => p._id === $('familiaResponsavel').value);
+    if (p) $('familiaEndereco').value = `${p.endereco}, Nº ${p.numero} — ${p.bairro}`;
+});
+function cancelarFamilia() {
+    familiaEditando = null; $('familiaForm').reset(); $('familiaResponsavel').disabled = false;
+    $('salvarFamilia').textContent = 'Criar família'; $('cancelarFamilia').hidden = true; atualizarResponsaveis();
+}
+$('cancelarFamilia').addEventListener('click', cancelarFamilia);
+$('familiaForm').addEventListener('submit', async event => {
+    event.preventDefault(); $('salvarFamilia').disabled = true;
+    try {
+        const dados = { nome: $('familiaNome').value, numeroFicha: $('familiaFicha').value, microarea: $('familiaMicroarea').value, endereco: $('familiaEndereco').value, responsavelId: $('familiaResponsavel').value };
+        const resposta = await requisicao(familiaEditando ? `/api/familias/${familiaEditando._id}` : '/api/familias', { method: familiaEditando ? 'PUT' : 'POST', body: JSON.stringify(dados) });
+        if (!resposta.ok) throw new Error(await mensagem(resposta));
+        const salvo = await resposta.json(); familiaAberta = salvo._id; cancelarFamilia();
+        $('familiaMensagem').textContent = 'Família salva com sucesso.'; await carregarOrganizacao();
+    } catch (error) { $('familiaMensagem').textContent = error.message; }
+    finally { $('salvarFamilia').disabled = false; }
+});
+$('familiasList').addEventListener('click', event => {
+    const b = event.target.closest('button'); if (!b) return;
+    if (b.dataset.familia) abrirFamilia(b.dataset.familia);
+    if (b.dataset.riscoFamilia) abrirRisco('familias', b.dataset.riscoFamilia);
+    if (b.dataset.editarFamilia) {
+        familiaEditando = familias.find(f => f._id === b.dataset.editarFamilia);
+        atualizarResponsaveis(); $('familiaNome').value = familiaEditando.nome; $('familiaFicha').value = familiaEditando.numeroFicha || '';
+        $('familiaMicroarea').value = familiaEditando.microarea || ''; $('familiaEndereco').value = familiaEditando.endereco || '';
+        $('familiaResponsavel').value = String(familiaEditando.responsavelId); $('familiaResponsavel').disabled = true;
+        $('salvarFamilia').textContent = 'Salvar alterações da família'; $('cancelarFamilia').hidden = false; $('familiaNome').focus();
+    }
+});
+async function acaoFamilia(rota, metodo, dados) {
+    const r = await requisicao(`/api/familias/${familiaAberta}${rota}`, { method: metodo, ...(dados ? { body: JSON.stringify(dados) } : {}) });
+    if (!r.ok) throw new Error(await mensagem(r));
+    await carregarOrganizacao();
+}
+$('familiaDetalhe').addEventListener('click', async event => {
+    const b = event.target.closest('button'); if (!b) return;
+    b.disabled = true;
+    try {
+        if (b.id === 'vincularMembro') { if (!$('membroExistente').value) throw new Error('Selecione um cadastro existente.'); await acaoFamilia('/membros', 'POST', { cadastroId: $('membroExistente').value, parentesco: $('membroParentesco').value }); }
+        if (b.dataset.responsavel && confirm('Definir esta pessoa como responsável pela família? Revise depois o parentesco dos outros membros em relação ao novo responsável.')) await acaoFamilia('/responsavel', 'PUT', { cadastroId: b.dataset.responsavel });
+        if (b.dataset.vinculo) {
+            const familia = familias.find(f => f._id === familiaAberta);
+            const atual = familia.membros.find(m => m.cadastroId?._id === b.dataset.vinculo)?.parentesco || '';
+            const parentesco = prompt('Vínculo/parentesco com o responsável atual:', atual);
+            if (parentesco !== null) await acaoFamilia('/membros/' + b.dataset.vinculo, 'PUT', { parentesco });
+        }
+        if (b.dataset.desvincular && confirm('Desvincular da família? A ficha individual será mantida.')) await acaoFamilia('/membros/' + b.dataset.desvincular, 'DELETE');
+        if (b.dataset.riscoPessoa) await abrirRisco('cadastros', b.dataset.riscoPessoa);
+        if (b.id === 'novoMembro') {
+            cancelarEdicao(); const familia = familias.find(f => f._id === familiaAberta);
+            novoFamiliarContexto = { familiaId: familiaAberta, parentesco: $('membroParentesco').value };
+            const resp = pessoasFamilia.find(p => p._id === String(familia.responsavelId));
+            if (resp) { $('endereco').value = resp.endereco; $('numero').value = resp.numero; $('bairro').value = resp.bairro; }
+            $('formTitle').textContent = `Novo familiar — ${familia.nome}`; $('cancelBtn').hidden = false; $('nomeCompleto').focus(); window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    } catch (error) { alert(error.message); }
+    finally { b.disabled = false; }
+});
+window.vincularNovoFamiliar = async function (cadastro) {
+    const contexto = novoFamiliarContexto; novoFamiliarContexto = null;
+    if (!contexto) return;
+    const r = await requisicao(`/api/familias/${contexto.familiaId}/membros`, { method: 'POST', body: JSON.stringify({ cadastroId: cadastro._id, parentesco: contexto.parentesco }) });
+    if (!r.ok) alert(`A ficha foi salva, mas não foi vinculada à família: ${await mensagem(r)}. Use “Vincular cadastro existente” para concluir.`);
+};
+window.cancelarNovoFamiliar = () => { novoFamiliarContexto = null; };
+
+function exibirHistorico(avaliacoes) {
+    $('riscoAtual').innerHTML = resumoRisco(avaliacoes);
+    $('riscoHistorico').innerHTML = avaliacoes.length ? avaliacoes.slice().reverse().map(a => `<article class="registro-risco"><h4>${texto(risco.tipos[a.tipo])} — ${texto(risco.niveis[a.nivel])}</h4><p>Avaliação: ${texto(formatarData(a.dataAvaliacao))} · Registro: ${texto(new Date(a.registradoEm).toLocaleString('pt-BR'))}</p><p>Responsável pela classificação: ${texto(a.profissional)} · ${texto(a.funcaoProfissional)}</p><p>Registrado por: ${texto(a.nomeRegistrador)}</p><p>Protocolo: ${texto(a.protocolo)} · ${texto(a.versaoProtocolo)}</p><p><strong>Justificativa:</strong> ${texto(a.justificativa)}</p>${a.planoAcompanhamento ? `<p><strong>Acompanhamento:</strong> ${texto(a.planoAcompanhamento)}</p>` : ''}<p>Próxima avaliação: ${texto(a.proximaAvaliacao ? formatarData(a.proximaAvaliacao) : 'não informada')}</p></article>`).join('') : '<p class="help-text">Nenhuma avaliação registrada. Isso não significa risco baixo.</p>';
+}
+async function abrirRisco(rota, id) {
+    try {
+        const r = await requisicao(`/api/${rota}/${id}/risco`); if (!r.ok) throw new Error(await mensagem(r));
+        const dados = await r.json(); riscoContexto = { rota, id };
+        $('riscoForm').reset(); $('riscoNome').textContent = dados.nome; $('riscoMensagem').textContent = '';
+        $('riscoTipo').innerHTML = '<option value="">Selecione...</option>' + Object.entries(risco.tipos).filter(([chave]) => rota === 'familias' ? chave === 'familiar' : chave !== 'familiar').map(([chave, nome]) => `<option value="${chave}">${texto(nome)}</option>`).join('');
+        if (rota === 'familias') $('riscoTipo').value = 'familiar';
+        $('riscoData').value = risco.hoje(); $('riscoData').max = risco.hoje(); exibirHistorico(dados.avaliacoes);
+        if (!$('riscoDialog').open) $('riscoDialog').showModal();
+    } catch (error) { alert(error.message); }
+}
+window.abrirRisco = abrirRisco;
+$('fecharRisco').addEventListener('click', () => $('riscoDialog').close());
+$('riscoForm').addEventListener('submit', async event => {
+    event.preventDefault(); if (!riscoContexto) return; $('salvarRisco').disabled = true;
+    try {
+        const dados = { tipo: $('riscoTipo').value, nivel: $('riscoNivel').value, dataAvaliacao: $('riscoData').value, proximaAvaliacao: $('riscoProxima').value, profissional: $('riscoProfissional').value, funcaoProfissional: $('riscoFuncao').value, protocolo: $('riscoProtocolo').value, versaoProtocolo: $('riscoVersao').value, justificativa: $('riscoJustificativa').value, planoAcompanhamento: $('riscoPlano').value, confirmacao: $('riscoConfirmacao').checked };
+        const r = await requisicao(`/api/${riscoContexto.rota}/${riscoContexto.id}/risco`, { method: 'POST', body: JSON.stringify(dados) });
+        if (!r.ok) throw new Error(await mensagem(r)); const resultado = await r.json();
+        exibirHistorico(resultado.avaliacoes); $('riscoMensagem').textContent = 'Avaliação salva com sucesso. O histórico foi preservado.';
+        $('riscoConfirmacao').checked = false; await buscarCadastros(); await carregarOrganizacao();
+    } catch (error) { $('riscoMensagem').textContent = error.message; }
+    finally { $('salvarRisco').disabled = false; }
+});
+if (token && usuario) carregarOrganizacao();

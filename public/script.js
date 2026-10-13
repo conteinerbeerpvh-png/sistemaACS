@@ -7,10 +7,12 @@ const $ = id => document.getElementById(id);
 const texto = valor => String(valor ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' })[char]);
 function headers(json = false) { return { ...(json ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }; }
 async function requisicao(url, options = {}) {
+  const sessaoInicial = token;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
     const response = await fetch(url, { ...options, signal: controller.signal, cache: 'no-store', headers: { ...headers(Boolean(options.body && !(options.body instanceof FormData))), ...(options.headers || {}) } });
+    if (sessaoInicial !== token) throw new Error('A sessão foi alterada. Faça a operação novamente.');
     if (response.status === 401 && token) sair();
     return response;
   } catch (error) {
@@ -20,26 +22,31 @@ async function requisicao(url, options = {}) {
 }
 async function mensagem(response) { return (await response.json().catch(() => ({}))).message || `Erro do servidor (HTTP ${response.status})`; }
 
-function mostrarApp() { 
-  $('authMensagem').textContent = ''; 
-  $('authScreen').hidden = true; 
-  $('authScreen').style.display = 'none'; 
-  $('appScreen').hidden = false; 
-  $('appScreen').style.display = 'block'; 
-  $('usuarioLogado').textContent = `Olá, ${usuario.nome}`; 
-  buscarCadastros(); 
+function mostrarApp() {
+  $('authMensagem').textContent = '';
+  $('authScreen').hidden = true;
+  $('authScreen').style.display = 'none';
+  $('appScreen').hidden = false;
+  $('appScreen').style.display = 'block';
+  $('usuarioLogado').textContent = `Olá, ${usuario.nome}`;
+  buscarCadastros();
+  window.carregarOrganizacao?.();
 }
 
-function sair() { 
-  localStorage.removeItem('acs_token'); 
-  localStorage.removeItem('acs_usuario'); 
-  token = null; 
-  usuario = null; 
-  $('appScreen').hidden = true; 
-  $('appScreen').style.display = 'none'; 
-  $('authScreen').hidden = false; 
-  $('authScreen').style.display = ''; 
-  $('loginForm').reset(); 
+function sair() {
+  localStorage.removeItem('acs_token');
+  localStorage.removeItem('acs_usuario');
+  window.limparOrganizacao?.();
+  cancelarEdicao();
+  cadastros = [];
+  $('cadastrosList').replaceChildren();
+  token = null;
+  usuario = null;
+  $('appScreen').hidden = true;
+  $('appScreen').style.display = 'none';
+  $('authScreen').hidden = false;
+  $('authScreen').style.display = '';
+  $('loginForm').reset();
 }
 
 function salvarSessao(dados) { token = dados.token; usuario = dados.usuario; localStorage.setItem('acs_token', token); localStorage.setItem('acs_usuario', JSON.stringify(usuario)); mostrarApp(); }
@@ -49,12 +56,12 @@ $('loginForm').addEventListener('submit', async event => { event.preventDefault(
 $('registerForm').addEventListener('submit', async event => { event.preventDefault(); $('authMensagem').textContent = 'Criando conta...'; try { const response = await requisicao('/api/auth/registrar', { method: 'POST', body: JSON.stringify({ nome: $('novoNome').value, usuario: $('novoUsuario').value, senha: $('novaSenha').value }) }); if (!response.ok) return $('authMensagem').textContent = await mensagem(response); salvarSessao(await response.json()); } catch (_) { $('authMensagem').textContent = 'Não foi possível acessar o servidor. Verifique se a nova versão foi publicada.'; } });
 $('logoutBtn').addEventListener('click', sair);
 
-function mascaraData() { 
-  let v = $('dataNascimento').value.replace(/\D/g, ''); 
-  if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2); 
-  if (v.length > 5) v = v.slice(0, 5) + '/' + v.slice(5, 9); 
-  $('dataNascimento').value = v; 
-  
+function mascaraData() {
+  let v = $('dataNascimento').value.replace(/\D/g, '');
+  if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
+  if (v.length > 5) v = v.slice(0, 5) + '/' + v.slice(5, 9);
+  $('dataNascimento').value = v;
+
   if (v.length === 10) {
     const [dia, mes, ano] = v.split('/');
     const hoje = new Date();
@@ -76,31 +83,38 @@ function formatarData(data) { if (!data) return 'Não informada'; const [ano, me
 function valorBooleano(id) { return $(id).value === 'true'; }
 function dadosFormulario() { const [dia, mes, ano] = $('dataNascimento').value.split('/'); return { nomeCompleto: $('nomeCompleto').value.trim(), dataNascimento: `${ano}-${mes}-${dia}`, cpf: $('cpf').value.trim(), telefone: $('telefone').value.trim(), endereco: $('endereco').value.trim(), numero: $('numero').value.trim(), bairro: $('bairro').value.trim(), sexo: $('sexo').value, criancaDeZeroANove: valorBooleano('criancaDeZeroANove'), gestante: valorBooleano('gestante'), acamado: valorBooleano('acamado'), domiciliado: valorBooleano('domiciliado'), doencasPreexistentes: [...document.querySelectorAll('input[name="doenca"]:checked')].map(item => item.value), outrasDoencas: $('outrasDoencas').value.trim() }; }
 
-async function buscarCadastros() { 
-    const search = $('searchInput').value.trim(); 
-    $('cadastrosList').innerHTML = '<p class="loading">Carregando...</p>'; 
-    const response = await requisicao(`/api/cadastros${search ? `?search=${encodeURIComponent(search)}` : ''}`); 
-    if (!response.ok) { $('cadastrosList').textContent = await mensagem(response); return; } 
-    cadastros = await response.json(); 
-    $('statsBar').hidden = false; 
-    $('resultCount').textContent = `Total: ${cadastros.length} cadastro(s)`; 
-    exibirCadastros(); 
+async function buscarCadastros() {
+    const search = $('searchInput').value.trim();
+    $('cadastrosList').innerHTML = '<p class="loading">Carregando...</p>';
+    try {
+    const parametros = new URLSearchParams();
+    if (search) parametros.set('search', search);
+    if ($('listaEstado').value === 'arquivados') parametros.set('arquivados', '1');
+    const response = await requisicao(`/api/cadastros?${parametros}`);
+    if (!response.ok) { $('cadastrosList').textContent = await mensagem(response); return; }
+    cadastros = await response.json();
+    $('statsBar').hidden = false;
+    $('resultCount').textContent = `Total: ${cadastros.length} cadastro(s)`;
+    exibirCadastros();
+    } catch (error) { $('cadastrosList').textContent = error.message; }
 }
 
-function exibirCadastros() { 
-    if (!cadastros.length) { 
-        $('cadastrosList').innerHTML = '<p class="loading">Nenhum cadastro encontrado.</p>'; 
+function exibirCadastros() {
+    const visiveis = window.cadastrosVisiveis ? window.cadastrosVisiveis() : cadastros;
+    $('resultCount').textContent = `Exibindo ${visiveis.length} de ${cadastros.length} cadastro(s)`;
+    if (!visiveis.length) {
+        $('cadastrosList').innerHTML = '<p class="loading">Nenhum cadastro encontrado.</p>';
         if ($('actionsBar')) $('actionsBar').hidden = true;
-        return; 
-    } 
-    
+        return;
+    }
+
     if ($('actionsBar')) $('actionsBar').hidden = false;
-    
-    $('cadastrosList').innerHTML = cadastros.map(c => { 
-        const doencas = [...(c.doencasPreexistentes || []), c.outrasDoencas].filter(Boolean).join(', ') || 'Nenhuma'; 
+
+    $('cadastrosList').innerHTML = visiveis.map(c => {
+        const doencas = [...(c.doencasPreexistentes || []), c.outrasDoencas].filter(Boolean).join(', ') || 'Nenhuma';
         return `<article class="cadastro-item">
             <h3 style="display:flex; align-items:center; gap:10px;">
-                <input type="checkbox" class="select-cadastro" value="${c._id}" style="width:18px; height:18px; cursor:pointer;"> 
+                <input type="checkbox" class="select-cadastro" value="${c._id}" style="width:18px; height:18px; cursor:pointer;">
                 <span><i class="fas fa-user"></i> ${texto(c.nomeCompleto)}</span>
             </h3>
             <p><strong>CPF:</strong> ${texto(c.cpf)}</p>
@@ -110,37 +124,42 @@ function exibirCadastros() {
             <p><strong>Endereço:</strong> ${texto(c.endereco)}, Nº ${texto(c.numero)} — ${texto(c.bairro)}</p>
             <p><strong>Doenças:</strong> ${texto(doencas)}</p>
             <p><strong>Nascimento:</strong> ${formatarData(c.dataNascimento)}</p>
+            ${window.extrasFicha ? window.extrasFicha(c) : ''}
             <div class="cadastro-actions">
-                <button class="btn-whatsapp" data-whatsapp="${c.telefone}"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                ${c.arquivado ? `<button class="btn-edit" data-restaurar="${texto(c._id)}">Restaurar cadastro</button>` : `
+                <button class="btn-print" data-risco="${texto(c._id)}">Estratificação de risco</button>
+                <button class="btn-whatsapp" data-whatsapp="${texto(c.telefone)}"><i class="fab fa-whatsapp"></i> WhatsApp</button>
                 <button class="btn-edit" data-editar="${c._id}"><i class="fas fa-edit"></i> Editar</button>
                 <button class="btn-print" data-imprimir="${c._id}"><i class="fas fa-print"></i> Imprimir</button>
-                <button class="btn-delete" data-excluir="${c._id}"><i class="fas fa-trash"></i> Excluir</button>
+                <button class="btn-delete" data-excluir="${c._id}"><i class="fas fa-archive"></i> Arquivar</button>`}
             </div>
-        </article>`; 
-    }).join(''); 
+        </article>`;
+    }).join('');
 }
 
-$('cadastrosList').addEventListener('click', event => { 
+$('cadastrosList').addEventListener('click', event => {
     const target = event.target.closest('button');
     if (!target) return;
-    
-    const id = target.dataset.editar || target.dataset.excluir || target.dataset.imprimir; 
-    
+
+    const id = target.dataset.editar || target.dataset.excluir || target.dataset.imprimir;
+
     if (target.dataset.whatsapp) {
         const numero = target.dataset.whatsapp.replace(/\D/g, '');
         if (numero) window.open(`https://wa.me/55${numero}`, '_blank');
         return;
     }
 
-    if (!id) return; 
-    if (target.dataset.editar) editarCadastro(id); 
-    else if (target.dataset.imprimir) imprimirCadastro(id); 
-    else if (target.dataset.excluir) excluirCadastro(id); 
+    if (target.dataset.restaurar) { restaurarCadastro(target.dataset.restaurar); return; }
+    if (target.dataset.risco) { window.abrirRisco?.('cadastros', target.dataset.risco); return; }
+    if (!id) return;
+    if (target.dataset.editar) editarCadastro(id);
+    else if (target.dataset.imprimir) imprimirCadastro(id);
+    else if (target.dataset.excluir) excluirCadastro(id);
 });
 
-function imprimirCadastro(id) { 
-    const c = cadastros.find(item => item._id === id); 
-    if (!c) return; 
+function imprimirCadastro(id) {
+    const c = cadastros.find(item => item._id === id);
+    if (!c) return;
     imprimirVarios([c]);
 }
 
@@ -148,28 +167,51 @@ function imprimirVarios(lista) {
     if (!lista || !lista.length) return alert('Nenhum cadastro selecionado.');
     const janela = window.open('', '_blank');
     if (!janela) return alert('Permita pop-ups para imprimir.');
-    
+
     let html = `<!doctype html><html><head><title>Exportar Cadastros</title><style>@page{size:A4;margin:15mm}body{font-family:Arial,sans-serif;color:#222}.ficha{max-width:180mm;margin:auto; page-break-after: always; padding-bottom: 15mm;}h1{color:#4f62c8;margin-bottom:3mm}h2{border-bottom:2px solid #667eea;padding-bottom:3mm}.linha{margin:5mm 0;font-size:12pt}.rodape{margin-top:15mm;font-size:9pt;color:#666}</style></head><body>`;
-    
+
     lista.forEach(c => {
         const doencas = [...(c.doencasPreexistentes || []), c.outrasDoencas].filter(Boolean).join(', ') || 'Nenhuma';
-        html += `<main class="ficha"><h1>ACS Cadastro</h1><p>Ficha de Cadastro Individual</p><h2>${texto(c.nomeCompleto)}</h2><p class="linha"><b>CPF:</b> ${texto(c.cpf)}</p><p class="linha"><b>Telefone:</b> ${texto(c.telefone)}</p><p class="linha"><b>Data de nascimento:</b> ${formatarData(c.dataNascimento)}</p><p class="linha"><b>Sexo:</b> ${c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : 'Não informado'}</p><p class="linha"><b>Criança de 0 a 9 anos:</b> ${c.criancaDeZeroANove ? 'Sim' : 'Não'}</p><p class="linha"><b>Gestante:</b> ${c.gestante ? 'Sim' : 'Não'}</p><p class="linha"><b>Acamado:</b> ${c.acamado ? 'Sim' : 'Não'}</p><p class="linha"><b>Domiciliado:</b> ${c.domiciliado ? 'Sim' : 'Não'}</p><p class="linha"><b>Endereço:</b> ${texto(c.endereco)}, Nº ${texto(c.numero)} — ${texto(c.bairro)}</p><p class="linha"><b>Doenças pré-existentes:</b> ${texto(doencas)}</p><p class="rodape">Gerado em ${new Date().toLocaleString('pt-BR')}</p></main>`;
+        html += `<main class="ficha"><h1>ACS Cadastro</h1><p>Ficha de Cadastro Individual</p><h2>${texto(c.nomeCompleto)}</h2><p class="linha"><b>CPF:</b> ${texto(c.cpf)}</p><p class="linha"><b>Telefone:</b> ${texto(c.telefone)}</p><p class="linha"><b>Data de nascimento:</b> ${formatarData(c.dataNascimento)}</p><p class="linha"><b>Sexo:</b> ${c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : 'Não informado'}</p><p class="linha"><b>Criança de 0 a 9 anos:</b> ${c.criancaDeZeroANove ? 'Sim' : 'Não'}</p><p class="linha"><b>Gestante:</b> ${c.gestante ? 'Sim' : 'Não'}</p><p class="linha"><b>Acamado:</b> ${c.acamado ? 'Sim' : 'Não'}</p><p class="linha"><b>Domiciliado:</b> ${c.domiciliado ? 'Sim' : 'Não'}</p><p class="linha"><b>Endereço:</b> ${texto(c.endereco)}, Nº ${texto(c.numero)} — ${texto(c.bairro)}</p><p class="linha"><b>Doenças pré-existentes:</b> ${texto(doencas)}</p>${window.extrasFicha ? window.extrasFicha(c) : ''}<p class="rodape">Gerado em ${new Date().toLocaleString('pt-BR')}</p></main>`;
     });
-    
+
     html += `</body></html>`;
     janela.document.write(html);
     janela.document.close();
     janela.onload = () => janela.print();
 }
 
-$('cadastroForm').addEventListener('submit', async event => { event.preventDefault(); if ($('dataNascimento').value.length !== 10) return alert('Digite a data no formato DD/MM/AAAA.'); const response = await requisicao(editandoId ? `/api/cadastros/${editandoId}` : '/api/cadastros', { method: editandoId ? 'PUT' : 'POST', body: JSON.stringify(dadosFormulario()) }); if (!response.ok) return alert(await mensagem(response)); cancelarEdicao(); buscarCadastros(); });
-function editarCadastro(id) { const c = cadastros.find(item => item._id === id); if (!c) return; editandoId = id; $('nomeCompleto').value = c.nomeCompleto; $('dataNascimento').value = formatarData(c.dataNascimento); $('cpf').value = c.cpf; $('telefone').value = c.telefone; $('endereco').value = c.endereco; $('numero').value = c.numero; $('bairro').value = c.bairro; $('sexo').value = c.sexo; $('criancaDeZeroANove').value = c.criancaDeZeroANove !== undefined ? String(c.criancaDeZeroANove) : ''; $('gestante').value = c.gestante !== undefined ? String(c.gestante) : ''; $('acamado').value = c.acamado !== undefined ? String(c.acamado) : ''; $('domiciliado').value = c.domiciliado !== undefined ? String(c.domiciliado) : ''; $('outrasDoencas').value = c.outrasDoencas || ''; document.querySelectorAll('input[name="doenca"]').forEach(item => item.checked = c.doencasPreexistentes?.includes(item.value)); $('formTitle').textContent = 'Editar Cadastro'; $('cancelBtn').hidden = false; window.scrollTo({ top: 0, behavior: 'smooth' }); }
-function cancelarEdicao() { editandoId = null; $('cadastroForm').reset(); $('formTitle').textContent = 'Novo Cadastro'; $('cancelBtn').hidden = true; }
-async function excluirCadastro(id) { if (!confirm('Excluir este cadastro?')) return; const response = await requisicao(`/api/cadastros/${id}`, { method: 'DELETE' }); if (!response.ok) return alert(await mensagem(response)); buscarCadastros(); }
+$('cadastroForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    if ($('dataNascimento').value.length !== 10) return alert('Digite a data no formato DD/MM/AAAA.');
+    $('submitBtn').disabled = true;
+    let salvo = false;
+    try {
+        const response = await requisicao(editandoId ? `/api/cadastros/${editandoId}` : '/api/cadastros', { method: editandoId ? 'PUT' : 'POST', body: JSON.stringify(dadosFormulario()) });
+        if (!response.ok) throw new Error(await mensagem(response));
+        const cadastro = await response.json(); salvo = true;
+        await window.vincularNovoFamiliar?.(cadastro);
+        cancelarEdicao(); await buscarCadastros(); await window.carregarOrganizacao?.();
+    } catch (error) {
+        if (salvo) { cancelarEdicao(); buscarCadastros(); window.carregarOrganizacao?.(); alert('A ficha foi salva. Não foi possível concluir o vínculo ou atualizar a tela: ' + error.message); }
+        else alert(error.message);
+    } finally { $('submitBtn').disabled = false; }
+});
+function editarCadastro(id) { window.cancelarNovoFamiliar?.(); const c = cadastros.find(item => item._id === id); if (!c) return; editandoId = id; $('nomeCompleto').value = c.nomeCompleto; $('dataNascimento').value = formatarData(c.dataNascimento); $('cpf').value = c.cpf; $('telefone').value = c.telefone; $('endereco').value = c.endereco; $('numero').value = c.numero; $('bairro').value = c.bairro; $('sexo').value = c.sexo; $('criancaDeZeroANove').value = c.criancaDeZeroANove !== undefined ? String(c.criancaDeZeroANove) : ''; $('gestante').value = c.gestante !== undefined ? String(c.gestante) : ''; $('acamado').value = c.acamado !== undefined ? String(c.acamado) : ''; $('domiciliado').value = c.domiciliado !== undefined ? String(c.domiciliado) : ''; $('outrasDoencas').value = c.outrasDoencas || ''; document.querySelectorAll('input[name="doenca"]').forEach(item => item.checked = c.doencasPreexistentes?.includes(item.value)); $('formTitle').textContent = 'Editar Cadastro'; $('cancelBtn').hidden = false; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function cancelarEdicao() { window.cancelarNovoFamiliar?.(); editandoId = null; $('cadastroForm').reset(); $('formTitle').textContent = 'Novo Cadastro'; $('cancelBtn').hidden = true; }
+async function excluirCadastro(id) { if (!confirm('Arquivar este cadastro? Você poderá restaurá-lo na lista de arquivados.')) return; const response = await requisicao(`/api/cadastros/${id}`, { method: 'DELETE' }); if (!response.ok) return alert(await mensagem(response)); buscarCadastros(); window.carregarOrganizacao?.(); }
+async function restaurarCadastro(id) {
+    try {
+        const r = await requisicao(`/api/cadastros/${id}/restaurar`, { method: 'PUT' });
+        if (!r.ok) throw new Error(await mensagem(r));
+        await buscarCadastros(); await window.carregarOrganizacao?.();
+    } catch (error) { alert(error.message); }
+}
+$('listaEstado').addEventListener('change', buscarCadastros);
 $('cancelBtn').addEventListener('click', cancelarEdicao); $('buscarBtn').addEventListener('click', buscarCadastros); $('limparBtn').addEventListener('click', () => { $('searchInput').value = ''; buscarCadastros(); }); $('searchInput').addEventListener('keydown', event => { if (event.key === 'Enter') buscarCadastros(); });
 
 if ($('btnExportarTodos')) {
-    $('btnExportarTodos').addEventListener('click', () => imprimirVarios(cadastros));
+    $('btnExportarTodos').addEventListener('click', () => imprimirVarios(window.cadastrosVisiveis ? window.cadastrosVisiveis() : cadastros));
 }
 if ($('btnExportarSelecionados')) {
     $('btnExportarSelecionados').addEventListener('click', () => {
@@ -270,7 +312,7 @@ if (btnVoz) {
 
             $('scanStatus').textContent = 'Preenchimento concluído! Revise os dados.';
             $('scanStatus').style.color = '#4CAF50';
-            
+
             btnVoz.innerHTML = '<i class="fas fa-microphone"></i> Preencher por voz';
             btnVoz.style.background = '';
         };
@@ -290,7 +332,7 @@ if (btnVoz) {
         };
 
         btnVoz.addEventListener('click', () => {
-            try { recognition.start(); } catch (e) {} 
+            try { recognition.start(); } catch (e) {}
         });
 
     } else {
