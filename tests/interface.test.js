@@ -55,7 +55,7 @@ before(async () => {
     dom.window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
     dom.window.localStorage.setItem('acs_token', jwt.sign(agente, secret));
     dom.window.localStorage.setItem('acs_usuario', JSON.stringify({ nome: agente.nome, usuario: agente.usuario }));
-    for (const arquivo of ['risco.js', 'script.js', 'organizacao.js', 'cartao.js', 'coelho-savassi.js', 'coelho-formulario.js']) vm.runInContext(fs.readFileSync(path.join(pasta, arquivo), 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
+    for (const arquivo of ['pesquisa.js', 'risco.js', 'script.js', 'organizacao.js', 'cartao.js', 'coelho-savassi.js', 'coelho-formulario.js']) vm.runInContext(fs.readFileSync(path.join(pasta, arquivo), 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
     await esperar(() => dom.window.document.querySelectorAll('#familiaResponsavel option').length === 3, 'carregar responsáveis');
 });
 after(async () => {
@@ -266,6 +266,41 @@ test('paciente sem família abre tabela e registra avaliação do seu domicílio
     await esperar(() => !elemento('salvarCoelho').disabled, 'salvar domicílio avulso');
     assert.equal((await Cadastro.findById(p.id)).avaliacoesRisco.at(-1).coelhoSavassi.score, 5);
     elemento('fecharCoelho').click();
+});
+
+test('formulário salva tabagista e identificação autodeclarada e recarrega na edição', async () => {
+    const p = await Cadastro.findOne({ nomeCompleto: 'Paciente Avulso' });
+    await dom.window.buscarCadastros();
+    dom.window.editarCadastro(p.id);
+    assert.equal(elemento('lgbtqiapn').value, 'nao_informado');
+    elemento('lgbtqiapn').value = 'sim'; elemento('lgbtqiapn').dispatchEvent(new dom.window.Event('change'));
+    assert.equal(elemento('identificacoesLgbtqiapn').hidden, false);
+    elemento('cadastroForm').querySelector('[name="identificacaoLgbt"][value="Bissexual"]').checked = true;
+    elemento('cadastroForm').querySelector('[name="doenca"][value="Tabagista"]').checked = true;
+    enviar('cadastroForm');
+    await esperar(async () => (await Cadastro.findById(p.id)).lgbtqiapn === 'sim', 'salvar identificação');
+    await esperar(() => !elemento('submitBtn').disabled, 'atualizar lista após edição');
+    dom.window.editarCadastro(p.id);
+    assert.equal(elemento('lgbtqiapn').value, 'sim');
+    assert.equal(elemento('cadastroForm').querySelector('[name="identificacaoLgbt"][value="Bissexual"]').checked, true);
+    assert.equal(elemento('cadastroForm').querySelector('[name="doenca"][value="Tabagista"]').checked, true);
+    elemento('cancelBtn').click();
+    assert.equal(elemento('identificacoesLgbtqiapn').hidden, true);
+});
+test('edição permite remover responsável e área familiar permite escolher outro sem perder membros', async () => {
+    const f = await Familia.findOne({ responsavelId: responsavel.id });
+    dom.window.editarCadastro(responsavel.id);
+    assert.equal(elemento('removerResponsavelCadastro').hidden, false);
+    elemento('removerResponsavelCadastro').click();
+    await esperar(async () => !(await Familia.findById(f.id)).responsavelId, 'remover função');
+    await esperar(() => !elemento('removerResponsavelCadastro').disabled, 'atualizar edição');
+    assert.equal(elemento('removerResponsavelCadastro').hidden, true);
+    assert.equal((await Familia.findById(f.id)).membros.length, 3);
+    dom.window.document.querySelector(`[data-familia="${f.id}"]`).click();
+    assert.match(elemento('familiaDetalhe').textContent, /Responsável pendente/);
+    elemento('familiaDetalhe').querySelector(`[data-responsavel="${existente.id}"]`).click();
+    await esperar(async () => String((await Familia.findById(f.id)).responsavelId) === existente.id, 'definir outro responsável');
+    await esperar(() => elemento('familiaDetalhe').querySelector(`[data-remover-responsavel="${existente.id}"]`), 'recarregar família');
 });
 
 test('sair limpa fichas, famílias, contexto de edição e histórico sensível', async () => {

@@ -30,7 +30,9 @@ const cadastroSchema = new mongoose.Schema({
     domiciliado: { type: Boolean, default: false },
     arquivado: { type: Boolean, default: false },
     avaliacoesRisco: { type: [avaliacaoRiscoSchema], default: [] },
-    doencasPreexistentes: [{ type: String, enum: ['Hipertensão', 'Diabetes', 'Tuberculose', 'Hanseníase', 'Câncer', 'Asma', 'HIV'] }],
+    doencasPreexistentes: [{ type: String, enum: ['Hipertensão', 'Diabetes', 'Tuberculose', 'Hanseníase', 'Câncer', 'Asma', 'HIV', 'Tabagista'] }],
+    lgbtqiapn: { type: String, enum: ['nao_informado', 'sim', 'nao', 'prefere_nao_informar'], default: 'nao_informado' },
+    identificacoesLgbtqiapn: [{ type: String, enum: ['Lésbica', 'Gay', 'Bissexual', 'Travesti', 'Transexual', 'Transgênero', 'Queer', 'Em questionamento', 'Intersexo', 'Assexual', 'Arromântico(a)', 'Agênero', 'Pansexual', 'Não binário(a)', 'Outra identificação'] }],
     outrasDoencas: { type: String, trim: true, default: '' },
     cpf: {
         type: String,

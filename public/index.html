@@ -94,7 +94,30 @@
                 </div>
                 <div class="form-group"><label for="bairro">Bairro *</label><input id="bairro" required></div>
                 <fieldset class="doencas">
-                    <legend>Doenças pré-existentes</legend>
+                    <legend>Identificação LGBTQIAPN+ (opcional)</legend>
+                    <p class="help-text">Registre somente o que o paciente declarar. Este campo não altera a pontuação de risco.</p>
+                    <div class="form-group"><label for="lgbtqiapn">O paciente se identifica como LGBTQIAPN+?</label><select id="lgbtqiapn"><option value="nao_informado">Não informado</option><option value="sim">Sim</option><option value="nao">Não</option><option value="prefere_nao_informar">Prefere não informar</option></select></div>
+                    <div id="identificacoesLgbtqiapn" hidden><p>Identificações autodeclaradas (pode marcar mais de uma):</p>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Lésbica"> Lésbica</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Gay"> Gay</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Bissexual"> Bissexual</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Travesti"> Travesti</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Transexual"> Transexual</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Transgênero"> Transgênero</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Queer"> Queer</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Em questionamento"> Em questionamento</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Intersexo"> Intersexo</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Assexual"> Assexual</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Arromântico(a)"> Arromântico(a)</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Agênero"> Agênero</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Pansexual"> Pansexual</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Não binário(a)"> Não binário(a)</label>
+                    <label><input type="checkbox" name="identificacaoLgbt" value="Outra identificação"> Outra identificação</label>
+                    </div>
+                    <details><summary>O que significa a sigla?</summary><p>L: lésbicas; G: gays; B: bissexuais; T: travestis, transexuais e transgêneros; Q: queer ou em questionamento; I: intersexo; A: assexuais, arromânticos e agêneros; P: pansexuais; N: pessoas não binárias; +: outras orientações e identidades.</p></details>
+                </fieldset>
+                <fieldset class="doencas">
+                    <legend>Doenças e condições pré-existentes</legend>
                     <label><input type="checkbox" name="doenca" value="Hipertensão"> Hipertensão</label>
                     <label><input type="checkbox" name="doenca" value="Diabetes"> Diabetes</label>
                     <label><input type="checkbox" name="doenca" value="Tuberculose"> Tuberculose</label>
@@ -102,6 +125,7 @@
                     <label><input type="checkbox" name="doenca" value="Câncer"> Câncer</label>
                     <label><input type="checkbox" name="doenca" value="Asma"> Asma</label>
                     <label><input type="checkbox" name="doenca" value="HIV"> HIV</label>
+                    <label><input type="checkbox" name="doenca" value="Tabagista"> Tabagista (uso de tabaco)</label>
                 </fieldset>
                 <div class="form-group">
                     <label for="outrasDoencas">Outras doenças</label>
@@ -109,6 +133,7 @@
                 </div>
                 <div class="notice">
                     <label class="confirmacao"><input id="responsavelFamilia" type="checkbox"> <strong>Responsável pela família</strong></label>
+                    <button id="removerResponsavelCadastro" type="button" class="btn-delete" hidden>Remover função de responsável</button>
                     <p id="responsavelFamiliaAjuda" class="help-text">Marque para criar a família com esta ficha. Ao salvar, será aberta a área para adicionar os membros.</p>
                 </div>
                 <div class="form-buttons">
@@ -121,7 +146,7 @@
         <div class="card app-panel" data-panel="pacientes">
             <h2 id="listaPacientes"><i class="fas fa-search"></i> Meus Cadastros</h2>
             <div class="search-container">
-                <input id="searchInput" placeholder="Buscar por nome, CPF, telefone, bairro ou endereço">
+                <input id="searchInput" placeholder="Nome, CPF, endereço, doença ou condição (ex.: gestante, cancer)">
                 <button id="buscarBtn" class="btn-secondary">Buscar</button>
                 <button id="limparBtn" class="btn-clear">Limpar</button>
             </div>
@@ -225,9 +250,10 @@
         <div id="cartaoVisual"></div>
     </dialog>
 </div>
+<script src="pesquisa.js?v=1"></script>
 <script src="risco.js?v=1"></script>
-<script src="script.js?v=19"></script>
-<script src="organizacao.js?v=5"></script>
+<script src="script.js?v=20"></script>
+<script src="organizacao.js?v=6"></script>
 <script src="cartao.js?v=1"></script>
 <script src="coelho-savassi.js?v=1"></script>
 <script src="coelho-formulario.js?v=2"></script>

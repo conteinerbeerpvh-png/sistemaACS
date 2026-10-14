@@ -151,11 +151,12 @@ function organizacao(autenticar) {
         try {
             if (!idValido(req.params.id) || !idValido(req.params.cadastroId)) return res.status(400).json({ message: 'Família ou cadastro inválido.' });
             const familia = await Familia.findOneAndUpdate({ ...consultaFamilia(req, req.params.id),
-                responsavelId: { $ne: req.params.cadastroId }, 'membros.cadastroId': req.params.cadastroId
+                responsavelId: { $ne: req.params.cadastroId }, 'membros.cadastroId': req.params.cadastroId, 'membros.1': { $exists: true }
             }, { $pull: { membros: { cadastroId: req.params.cadastroId } } }, { new: true });
             if (!familia) {
                 const existente = await Familia.findOne(consultaFamilia(req, req.params.id)).lean();
                 if (existente && String(existente.responsavelId) === req.params.cadastroId) return res.status(409).json({ message: 'Escolha outro responsável antes de desvincular o atual.' });
+                if (existente?.membros.length === 1 && String(existente.membros[0].cadastroId) === req.params.cadastroId) return res.status(409).json({ message: 'Adicione o membro correto antes de desvincular o último cadastro. A função de responsável pode ficar pendente.' });
                 return res.status(404).json({ message: 'Família ou membro não encontrado.' });
             }
             await sincronizarFamilia(familia._id, req.usuario.id);
@@ -173,6 +174,17 @@ function organizacao(autenticar) {
             res.json(familia);
         } catch (error) { falha(res, error); }
     });
+    router.delete('/familias/:id/responsavel', async (req, res) => {
+        try {
+            if (!idValido(req.params.id) || !idValido(req.body.cadastroId)) return res.status(400).json({ message: 'Família ou responsável inválido.' });
+            if (!await Familia.exists(consultaFamilia(req, req.params.id))) return res.status(404).json({ message: 'Família não encontrada.' });
+            const familia = await Familia.findOneAndUpdate({ ...consultaFamilia(req, req.params.id), responsavelId: req.body.cadastroId },
+                { $set: { responsavelId: null } }, { new: true, runValidators: true });
+            if (!familia) return res.status(409).json({ message: 'Responsável não encontrado ou já alterado. Recarregue a família.' });
+            res.json(familia);
+        } catch (error) { falha(res, error); }
+    });
+
     router.put('/familias/:id/responsavel', async (req, res) => {
         try {
             if (!idValido(req.params.id) || !idValido(req.body.cadastroId)) return res.status(400).json({ message: 'Família ou cadastro inválido.' });

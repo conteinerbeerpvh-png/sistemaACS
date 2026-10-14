@@ -7,7 +7,7 @@ const familiaSchema = new mongoose.Schema({
     numeroFicha: { type: String, trim: true, default: '', maxlength: 50 },
     microarea: { type: String, trim: true, default: '', maxlength: 50 },
     endereco: { type: String, trim: true, default: '', maxlength: 250 },
-    responsavelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Cadastro', required: true },
+    responsavelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Cadastro', default: null },
     membros: [{
         _id: false,
         cadastroId: { type: mongoose.Schema.Types.ObjectId, ref: 'Cadastro', required: true },
@@ -21,7 +21,7 @@ const familiaSchema = new mongoose.Schema({
 familiaSchema.index({ usuarioId: 1, 'membros.cadastroId': 1 }, { unique: true });
 familiaSchema.pre('validate', function () {
     const ids = this.membros.map(membro => String(membro.cadastroId));
-    if (!ids.includes(String(this.responsavelId))) this.invalidate('responsavelId', 'O responsável deve ser um membro da família.');
+    if (this.responsavelId && !ids.includes(String(this.responsavelId))) this.invalidate('responsavelId', 'O responsável deve ser um membro da família.');
     if (new Set(ids).size !== ids.length) this.invalidate('membros', 'Um membro não pode aparecer duas vezes na família.');
 });
 

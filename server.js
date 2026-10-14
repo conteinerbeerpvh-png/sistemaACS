@@ -11,6 +11,8 @@ require('dotenv').config();
 const Cadastro = require('./models/cadastro');
 const Usuario = require('./models/usuario');
 const Familia = require('./models/familia');
+const pesquisa = require('./public/pesquisa');
+const identificacoesPermitidas = ['Lésbica', 'Gay', 'Bissexual', 'Travesti', 'Transexual', 'Transgênero', 'Queer', 'Em questionamento', 'Intersexo', 'Assexual', 'Arromântico(a)', 'Agênero', 'Pansexual', 'Não binário(a)', 'Outra identificação'];
 const { organizacao } = require('./routs/organizacao');
 const { sincronizarPessoa, aplicarContatoNasFichas } = require('./lib/dadosFamilia');
 function criarApp(opcoes = {}) {
@@ -48,12 +50,13 @@ function criarApp(opcoes = {}) {
 
     // CORREÇÃO: Adicionado acamado, domiciliado e outrasDoencas para o banco não ignorar os dados
     function dadosDoCadastro(body) {
-        const doencasPermitidas = ['Hipertensão', 'Diabetes', 'Tuberculose', 'Hanseníase', 'Câncer', 'Asma', 'HIV'];
+        const doencasPermitidas = ['Hipertensão', 'Diabetes', 'Tuberculose', 'Hanseníase', 'Câncer', 'Asma', 'HIV', 'Tabagista'];
         return {
             nomeCompleto: body.nomeCompleto?.trim(), dataNascimento: body.dataNascimento, endereco: body.endereco?.trim(),
             numero: body.numero?.trim(), bairro: body.bairro?.trim(), cpf: body.cpf?.trim(), telefone: body.telefone?.trim(),
             criancaDeZeroANove: body.criancaDeZeroANove === true, sexo: body.sexo, gestante: body.gestante === true,
             acamado: body.acamado === true, domiciliado: body.domiciliado === true, outrasDoencas: body.outrasDoencas?.trim(),
+            ...(body.lgbtqiapn !== undefined ? { lgbtqiapn: body.lgbtqiapn, identificacoesLgbtqiapn: body.lgbtqiapn === 'sim' && Array.isArray(body.identificacoesLgbtqiapn) ? [...new Set(body.identificacoesLgbtqiapn.filter(v => identificacoesPermitidas.includes(v)))] : [] } : {}),
             doencasPreexistentes: Array.isArray(body.doencasPreexistentes) ? body.doencasPreexistentes.filter(item => doencasPermitidas.includes(item)) : []
         };
     }
@@ -102,7 +105,13 @@ function criarApp(opcoes = {}) {
         catch (error) { res.status(error.code === 11000 ? 409 : 400).json({ message: error.code === 11000 ? 'CPF já cadastrado na sua lista.' : error.message }); }
     });
     app.get('/api/cadastros', autenticar, async (req, res) => {
-        try { await migrarCadastrosDaDiana(req.usuario); const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''; const query = { usuarioId: req.usuario.id, arquivado: req.query.arquivados === '1' ? true : { $ne: true } }; if (search) query.$or = ['nomeCompleto', 'cpf', 'telefone', 'bairro', 'endereco', 'doencasPreexistentes'].map(campo => ({ [campo]: { $regex: escapeRegex(search), $options: 'i' } })); res.json(await aplicarContatoNasFichas(await Cadastro.find(query).sort({ dataCadastro: -1 }).lean(), req.usuario.id)); }
+        try {
+            await migrarCadastrosDaDiana(req.usuario);
+            const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+            const query = { usuarioId: req.usuario.id, arquivado: req.query.arquivados === '1' ? true : { $ne: true } };
+            const fichas = await aplicarContatoNasFichas(await Cadastro.find(query).sort({ dataCadastro: -1 }).lean(), req.usuario.id);
+            res.json(fichas.filter(p => pesquisa.corresponde(p, search)));
+        }
         catch (error) { res.status(500).json({ message: error.message }); }
     });
     app.get('/api/cadastros/:id', autenticar, async (req, res) => { try { const cadastro = await Cadastro.findOne({ _id: req.params.id, usuarioId: req.usuario.id, arquivado: { $ne: true } }); if (!cadastro) return res.status(404).json({ message: 'Cadastro não encontrado.' }); res.json((await aplicarContatoNasFichas([cadastro.toObject()], req.usuario.id))[0]); } catch (_) { res.status(400).json({ message: 'ID inválido.' }); } });
@@ -111,7 +120,7 @@ function criarApp(opcoes = {}) {
             const query = { _id: req.params.id, usuarioId: req.usuario.id, arquivado: { $ne: true } };
             const familia = await Familia.findOne({ usuarioId: req.usuario.id, 'membros.cadastroId': req.params.id }).lean();
             const dados = dadosDoCadastro(req.body);
-            if (familia && String(familia.responsavelId) !== req.params.id) {
+            if (familia?.responsavelId && String(familia.responsavelId) !== req.params.id) {
                 const responsavel = await Cadastro.findOne({ _id: familia.responsavelId, usuarioId: req.usuario.id }).lean();
                 if (!responsavel) return res.status(409).json({ message: 'Verifique o responsável da família antes de editar os dados.' });
                 for (const campo of ['telefone', 'endereco', 'numero', 'bairro']) dados[campo] = responsavel[campo];

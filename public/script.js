@@ -82,7 +82,7 @@ function mascaraTelefone() { let v = $('telefone').value.replace(/\D/g, '').slic
 $('dataNascimento').addEventListener('input', mascaraData); $('cpf').addEventListener('input', mascaraCpf); $('telefone').addEventListener('input', mascaraTelefone);
 function formatarData(data) { if (!data) return 'Não informada'; const [ano, mes, dia] = String(data).split('T')[0].split('-'); return dia ? `${dia}/${mes}/${ano}` : data; }
 function valorBooleano(id) { return $(id).value === 'true'; }
-function dadosFormulario() { const [dia, mes, ano] = $('dataNascimento').value.split('/'); return { nomeCompleto: $('nomeCompleto').value.trim(), dataNascimento: `${ano}-${mes}-${dia}`, cpf: $('cpf').value.trim(), telefone: $('telefone').value.trim(), endereco: $('endereco').value.trim(), numero: $('numero').value.trim(), bairro: $('bairro').value.trim(), sexo: $('sexo').value, criancaDeZeroANove: valorBooleano('criancaDeZeroANove'), gestante: valorBooleano('gestante'), acamado: valorBooleano('acamado'), domiciliado: valorBooleano('domiciliado'), doencasPreexistentes: [...document.querySelectorAll('input[name="doenca"]:checked')].map(item => item.value), outrasDoencas: $('outrasDoencas').value.trim() }; }
+function dadosFormulario() { const [dia, mes, ano] = $('dataNascimento').value.split('/'); return { nomeCompleto: $('nomeCompleto').value.trim(), dataNascimento: `${ano}-${mes}-${dia}`, cpf: $('cpf').value.trim(), telefone: $('telefone').value.trim(), endereco: $('endereco').value.trim(), numero: $('numero').value.trim(), bairro: $('bairro').value.trim(), sexo: $('sexo').value, criancaDeZeroANove: valorBooleano('criancaDeZeroANove'), gestante: valorBooleano('gestante'), acamado: valorBooleano('acamado'), domiciliado: valorBooleano('domiciliado'), doencasPreexistentes: [...document.querySelectorAll('input[name="doenca"]:checked')].map(item => item.value), outrasDoencas: $('outrasDoencas').value.trim(), lgbtqiapn: $('lgbtqiapn').value, identificacoesLgbtqiapn: $('lgbtqiapn').value === 'sim' ? [...document.querySelectorAll('input[name="identificacaoLgbt"]:checked')].map(i => i.value) : [] }; }
 
 async function buscarCadastros() {
     const search = $('searchInput').value.trim();
@@ -125,7 +125,7 @@ function exibirCadastros() {
             <p><strong>Sexo:</strong> ${c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : 'Não informado'} · <strong>Criança 0–9:</strong> ${c.criancaDeZeroANove ? 'Sim' : 'Não'} · <strong>Gestante:</strong> ${c.gestante ? 'Sim' : 'Não'}</p>
             <p><strong>Acamado:</strong> ${c.acamado ? 'Sim' : 'Não'} · <strong>Domiciliado:</strong> ${c.domiciliado ? 'Sim' : 'Não'}</p>
             <p><strong>Endereço:</strong> ${texto(c.endereco)}, Nº ${texto(c.numero)} — ${texto(c.bairro)}</p>
-            <p><strong>Doenças:</strong> ${texto(doencas)}</p>
+            <p><strong>Identificação LGBTQIAPN+:</strong> ${texto(rotuloLgbt(c))}</p><p><strong>Doenças e condições:</strong> ${texto(doencas)}</p>
             <p><strong>Nascimento:</strong> ${formatarData(c.dataNascimento)}</p>
             </details>
             ${window.extrasFicha ? window.extrasFicha(c) : ''}
@@ -220,7 +220,7 @@ $('cadastroForm').addEventListener('submit', async event => {
         } else alert(error.message);
     } finally { $('submitBtn').disabled = false; }
 });
-function editarCadastro(id) { window.cancelarNovoFamiliar?.(); const c = cadastros.find(item => item._id === id); if (!c) return; editandoId = id; $('nomeCompleto').value = c.nomeCompleto; $('dataNascimento').value = formatarData(c.dataNascimento); $('cpf').value = c.cpf; $('telefone').value = c.telefone; $('endereco').value = c.endereco; $('numero').value = c.numero; $('bairro').value = c.bairro; $('sexo').value = c.sexo; $('criancaDeZeroANove').value = c.criancaDeZeroANove !== undefined ? String(c.criancaDeZeroANove) : ''; $('gestante').value = c.gestante !== undefined ? String(c.gestante) : ''; $('acamado').value = c.acamado !== undefined ? String(c.acamado) : ''; $('domiciliado').value = c.domiciliado !== undefined ? String(c.domiciliado) : ''; $('outrasDoencas').value = c.outrasDoencas || ''; document.querySelectorAll('input[name="doenca"]').forEach(item => item.checked = c.doencasPreexistentes?.includes(item.value)); window.mostrarTela?.('cadastro'); $('formTitle').textContent = 'Editar Cadastro'; $('cancelBtn').hidden = false; window.prepararResponsavelNoFormulario?.(c); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function editarCadastro(id) { window.cancelarNovoFamiliar?.(); const c = cadastros.find(item => item._id === id); if (!c) return; editandoId = id; $('nomeCompleto').value = c.nomeCompleto; $('dataNascimento').value = formatarData(c.dataNascimento); $('cpf').value = c.cpf; $('telefone').value = c.telefone; $('endereco').value = c.endereco; $('numero').value = c.numero; $('bairro').value = c.bairro; $('sexo').value = c.sexo; $('lgbtqiapn').value = c.lgbtqiapn || 'nao_informado'; document.querySelectorAll('input[name="identificacaoLgbt"]').forEach(i => i.checked = c.identificacoesLgbtqiapn?.includes(i.value)); atualizarIdentificacaoLgbt(); $('criancaDeZeroANove').value = c.criancaDeZeroANove !== undefined ? String(c.criancaDeZeroANove) : ''; $('gestante').value = c.gestante !== undefined ? String(c.gestante) : ''; $('acamado').value = c.acamado !== undefined ? String(c.acamado) : ''; $('domiciliado').value = c.domiciliado !== undefined ? String(c.domiciliado) : ''; $('outrasDoencas').value = c.outrasDoencas || ''; document.querySelectorAll('input[name="doenca"]').forEach(item => item.checked = c.doencasPreexistentes?.includes(item.value)); window.mostrarTela?.('cadastro'); $('formTitle').textContent = 'Editar Cadastro'; $('cancelBtn').hidden = false; window.prepararResponsavelNoFormulario?.(c); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function cancelarEdicao() { window.cancelarNovoFamiliar?.(); editandoId = null; $('cadastroForm').reset(); $('formTitle').textContent = 'Novo Cadastro'; $('cancelBtn').hidden = true; window.prepararResponsavelNoFormulario?.(); }
 async function excluirCadastro(id) { if (!confirm('Arquivar este cadastro? Você poderá restaurá-lo na lista de arquivados.')) return; const response = await requisicao(`/api/cadastros/${id}`, { method: 'DELETE' }); if (!response.ok) return alert(await mensagem(response)); buscarCadastros(); window.carregarOrganizacao?.(); }
 async function restaurarCadastro(id) {
@@ -367,3 +367,14 @@ if (btnVoz) {
 }
 
 if (token && usuario) mostrarApp();
+
+function rotuloLgbt(c) {
+    const status = { sim: 'Sim', nao: 'Não', nao_informado: 'Não informado', prefere_nao_informar: 'Prefere não informar' };
+    return (status[c.lgbtqiapn] || 'Não informado') + (c.lgbtqiapn === 'sim' && c.identificacoesLgbtqiapn?.length ? ' — ' + c.identificacoesLgbtqiapn.join(', ') : '');
+}
+function atualizarIdentificacaoLgbt() {
+    $('identificacoesLgbtqiapn').hidden = $('lgbtqiapn').value !== 'sim';
+    if ($('lgbtqiapn').value !== 'sim') document.querySelectorAll('input[name="identificacaoLgbt"]').forEach(i => i.checked = false);
+}
+$('lgbtqiapn').addEventListener('change', atualizarIdentificacaoLgbt);
+$('cadastroForm').addEventListener('reset', () => { $('identificacoesLgbtqiapn').hidden = true; });

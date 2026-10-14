@@ -70,3 +70,12 @@ ATUALIZAÇÃO V5 - TABELA DO PDF NA FICHA INDIVIDUAL
 - Informe todos os moradores e as sentinelas do domicílio, inclusive se houver apenas um morador.
 - Fichas e filtros exibem o risco da família atual. Históricos anteriores são preservados.
 - Continuam as escolhas e pendências explicitadas para as ambiguidades do PDF.
+
+ATUALIZAÇÃO V6 - CORREÇÕES DE CADASTRO E BUSCA
+- Envie todos os arquivos deste ZIP, incluindo public/pesquisa.js.
+- Remover função de responsável aparece ao editar o responsável. Também há Remover responsável na família.
+- A família fica pendente sem apagar membros nem avaliações; defina outro responsável e desvincule a pessoa errada.
+- Tabagista disponível em doenças e condições pré-existentes.
+- Identificação LGBTQIAPN+ opcional e autodeclarada, com identificações por extenso.
+- Pesquisa aceita acentos ou sem acento e encontra gestante/gravida, tabagista/fumante e outras doenças.
+- Não exige novas variáveis de ambiente. Mantém os requisitos JWT_SECRET e MONGODB_URI existentes.

@@ -54,11 +54,14 @@ function prepararResponsavelNoFormulario(cadastro) {
     const jaResponsavel = Boolean(familia && String(familia.responsavelId) === cadastro._id);
     $('responsavelFamilia').checked = jaResponsavel;
     $('responsavelFamilia').disabled = jaResponsavel;
+    $('removerResponsavelCadastro').hidden = !jaResponsavel;
+    $('removerResponsavelCadastro').dataset.familia = jaResponsavel ? familia._id : '';
+    $('removerResponsavelCadastro').dataset.pessoa = jaResponsavel ? cadastro._id : '';
     $('responsavelFamiliaAjuda').textContent = jaResponsavel
-        ? 'Este paciente já é responsável pela família. Ao salvar, a área de membros será aberta. Para trocar o responsável, use a área da família.'
+        ? 'Este paciente já é responsável pela família. Ao salvar, a área de membros será aberta. Para corrigir, use “Remover função de responsável” abaixo ou escolha outro membro na família.'
         : 'Marque para criar a família com esta ficha. Ao salvar, será aberta a área para adicionar os membros.';
-    for (const campo of ['telefone', 'endereco', 'numero', 'bairro']) $(campo).disabled = Boolean(familia && !jaResponsavel);
-    if (familia && !jaResponsavel) $('responsavelFamiliaAjuda').textContent = 'Telefone e endereço seguem os dados do responsável. Altere esses dados na ficha dele.';
+    for (const campo of ['telefone', 'endereco', 'numero', 'bairro']) $(campo).disabled = Boolean(familia?.responsavelId && !jaResponsavel);
+    if (familia?.responsavelId && !jaResponsavel) $('responsavelFamiliaAjuda').textContent = 'Telefone e endereço seguem os dados do responsável. Altere esses dados na ficha dele.';
     atualizarBotaoCadastro();
 }
 function atualizarBotaoCadastro() {
@@ -115,14 +118,14 @@ function atualizarResponsaveis() {
     $('familiaResponsavel').value = anterior;
 }
 function exibirFamilias() {
-    const termo = $('familiaBusca').value.toLocaleLowerCase('pt-BR');
-    const lista = familias.filter(f => [f.nome, f.numeroFicha, f.microarea, ...f.membros.map(m => m.cadastroId?.nomeCompleto)].some(v => String(v || '').toLocaleLowerCase('pt-BR').includes(termo)));
+    const termo = window.PesquisaACS.normalizar($('familiaBusca').value);
+    const lista = familias.filter(f => [f.nome, f.numeroFicha, f.microarea, f.endereco].some(v => window.PesquisaACS.normalizar(v).includes(termo)) || f.membros.some(m => m.cadastroId && window.PesquisaACS.corresponde(m.cadastroId, termo)));
     const total = Math.max(1, Math.ceil(lista.length / porPagina));
     paginaFamilias = Math.min(paginaFamilias, total);
     paginacao('familiasPaginacao', paginaFamilias, total, nova => { paginaFamilias = nova; exibirFamilias(); });
     $('familiasList').innerHTML = lista.length ? lista.slice((paginaFamilias - 1) * porPagina, paginaFamilias * porPagina).map(f => {
         const resp = f.membros.find(m => String(m.cadastroId?._id) === String(f.responsavelId))?.cadastroId;
-        return `<article class="familia-item"><h3>${texto(f.nome)}</h3><p>Responsável: ${texto(resp?.nomeCompleto || 'Cadastro indisponível')} · ${f.membros.length} membro(s)</p><p>Ficha: ${texto(f.numeroFicha || 'não informada')} · Microárea: ${texto(f.microarea || 'não informada')}</p>${resumoRisco(f.avaliacoesRisco)}<div class="cadastro-actions"><button type="button" class="btn-edit" data-familia="${texto(f._id)}">Abrir família</button><button type="button" class="btn-secondary" data-cartao-familia="${texto(f._id)}">Cartão</button><button type="button" class="btn-print" data-risco-familia="${texto(f._id)}">Risco familiar</button><button type="button" class="btn-clear" data-editar-familia="${texto(f._id)}">Editar família</button></div></article>`;
+        return `<article class="familia-item"><h3>${texto(f.nome)}</h3><p>Responsável: ${texto(resp?.nomeCompleto || 'Responsável pendente')} · ${f.membros.length} membro(s)</p><p>Ficha: ${texto(f.numeroFicha || 'não informada')} · Microárea: ${texto(f.microarea || 'não informada')}</p>${resumoRisco(f.avaliacoesRisco)}<div class="cadastro-actions"><button type="button" class="btn-edit" data-familia="${texto(f._id)}">Abrir família</button><button type="button" class="btn-secondary" data-cartao-familia="${texto(f._id)}">Cartão</button><button type="button" class="btn-print" data-risco-familia="${texto(f._id)}">Risco familiar</button><button type="button" class="btn-clear" data-editar-familia="${texto(f._id)}">Editar família</button></div></article>`;
     }).join('') : '<p class="help-text">Nenhuma família encontrada. Cadastre primeiro o responsável na ficha individual.</p>';
 }
 function abrirFamilia(id) {
@@ -133,7 +136,7 @@ function abrirFamilia(id) {
     $('familiaDetalhe').hidden = false;
     $('familiaDetalhe').innerHTML = `<h3>${texto(f.nome)}</h3><p class="help-text">${texto(f.endereco || 'Endereço não informado')}</p>
         <section class="notice"><strong>Cartão da família</strong><p id="cartaoStatus">Preparando cartão frente e verso...</p><div class="cadastro-actions"><button id="verCartao" type="button" class="btn-edit" disabled>Ver cartão</button><button id="baixarCartao" type="button" class="btn-print" disabled>Baixar PDF</button><button id="whatsappCartao" type="button" class="btn-whatsapp" disabled>Enviar por WhatsApp</button><button id="atualizarCartao" type="button" class="btn-clear">Atualizar cartão</button></div><small>Se o celular abrir o menu de compartilhamento, escolha WhatsApp. Quando não houver suporte a anexos, baixe o PDF e anexe na conversa.</small></section>
-        <p class="help-text">Telefone, endereço, bairro e número da casa dos membros seguem os dados do responsável.</p>
+        ${f.responsavelId ? '<p class="help-text">Telefone, endereço, bairro e número da casa dos membros seguem os dados do responsável.</p>' : '<p class="notice">Responsável pendente. Escolha um membro e clique em “Tornar responsável”. Cada ficha mantém seus dados atuais. Para desvincular o último cadastro, primeiro adicione o membro correto.</p>'}
         <div class="form-group"><label for="membroBusca">Pesquisar pessoa já cadastrada</label><input id="membroBusca" placeholder="Nome, CPF ou telefone" autocomplete="off"></div>
         <div class="form-row"><div class="form-group"><label for="membroExistente">Adicionar cadastro existente</label><select id="membroExistente"><option value="">Selecione...</option>${disponiveis.map(p => `<option value="${texto(p._id)}">${texto(p.nomeCompleto)} · ${texto(p.cpf)}</option>`).join('')}</select></div><div class="form-group"><label for="membroParentesco">Vínculo/parentesco com o responsável</label><input id="membroParentesco" maxlength="100" placeholder="Ex.: filho, cônjuge ou outro vínculo"></div></div>
         <div class="cadastro-actions"><button type="button" id="vincularMembro" class="btn-edit">Vincular cadastro existente</button><button type="button" id="novoMembro" class="btn-secondary">Cadastrar novo familiar</button></div>
@@ -141,7 +144,7 @@ function abrirFamilia(id) {
             const p = m.cadastroId;
             if (!p?._id) return '<p class="help-text">Membro indisponível. Verifique o cadastro.</p>';
             const responsavel = String(f.responsavelId) === p._id;
-            return `<article class="membro-item"><strong>${texto(p.nomeCompleto)}</strong> · ${responsavel ? 'Responsável' : texto(m.parentesco || 'Vínculo não informado')}${p.arquivado ? ' · Cadastro arquivado' : ''}<p>CPF: ${texto(p.cpf)}</p><div class="cadastro-actions"><button class="btn-print" data-risco-pessoa="${texto(p._id)}" type="button">Risco individual</button>${!responsavel ? `<button class="btn-clear" data-vinculo="${texto(p._id)}" type="button">Editar vínculo</button><button class="btn-edit" data-responsavel="${texto(p._id)}" type="button">Tornar responsável</button><button class="btn-delete" data-desvincular="${texto(p._id)}" type="button">Desvincular</button>` : ''}</div></article>`;
+            return `<article class="membro-item"><strong>${texto(p.nomeCompleto)}</strong> · ${responsavel ? 'Responsável' : texto(m.parentesco || 'Vínculo não informado')}${p.arquivado ? ' · Cadastro arquivado' : ''}<p>CPF: ${texto(p.cpf)}</p><div class="cadastro-actions"><button class="btn-print" data-risco-pessoa="${texto(p._id)}" type="button">Risco individual</button>${!responsavel ? `<button class="btn-clear" data-vinculo="${texto(p._id)}" type="button">Editar vínculo</button><button class="btn-edit" data-responsavel="${texto(p._id)}" type="button">Tornar responsável</button><button class="btn-delete" data-desvincular="${texto(p._id)}" type="button">Desvincular</button>` : `<button class="btn-delete" data-remover-responsavel="${texto(p._id)}" type="button">Remover responsável</button>`}</div></article>`;
         }).join('')}</div>`;
     window.prepararCartaoFamilia?.(f._id);
     $('membroBusca').addEventListener('input', () => {
@@ -149,7 +152,7 @@ function abrirFamilia(id) {
         const termo = normalizar($('membroBusca').value.trim());
         const digitos = termo.replace(/\D/g, '');
         const buscarDocumento = /^[\d.\-()\s]+$/.test(termo) && digitos;
-        const encontrados = disponiveis.filter(p => [p.nomeCompleto, p.cpf, p.telefone].some(valor => normalizar(valor).includes(termo)) ||
+        const encontrados = disponiveis.filter(p => window.PesquisaACS.corresponde(p, termo) ||
             (buscarDocumento && [p.cpf, p.telefone].some(valor => String(valor || '').replace(/\D/g, '').includes(digitos))));
         $('membroExistente').innerHTML = `<option value="">${encontrados.length ? 'Selecione...' : 'Nenhuma pessoa disponível encontrada'}</option>` + encontrados.map(p => `<option value="${texto(p._id)}">${texto(p.nomeCompleto)} · ${texto(p.cpf)}</option>`).join('');
     });
@@ -208,6 +211,7 @@ $('familiaDetalhe').addEventListener('click', async event => {
             const parentesco = prompt('Vínculo/parentesco com o responsável atual:', atual);
             if (parentesco !== null) await acaoFamilia('/membros/' + b.dataset.vinculo, 'PUT', { parentesco });
         }
+        if (b.dataset.removerResponsavel && confirm('Remover esta pessoa da função de responsável? A família e o histórico serão mantidos. Depois você poderá desvinculá-la e definir outro responsável.')) await acaoFamilia('/responsavel', 'DELETE', { cadastroId: b.dataset.removerResponsavel });
         if (b.dataset.desvincular && confirm('Desvincular da família? A ficha individual será mantida.')) await acaoFamilia('/membros/' + b.dataset.desvincular, 'DELETE');
         if (b.dataset.riscoPessoa) await window.abrirCoelhoSavassi?.(b.dataset.riscoPessoa, 'cadastros');
         if (b.id === 'novoMembro') {
@@ -292,3 +296,15 @@ window.paginarPacientes = lista => {
     return lista.slice((paginaPacientes - 1) * porPagina, paginaPacientes * porPagina);
 };
 mostrarTela('pacientes');
+
+$('removerResponsavelCadastro').addEventListener('click', async () => {
+    const b = $('removerResponsavelCadastro');
+    if (!b.dataset.familia || !confirm('Remover a função de responsável? A família, os membros e as avaliações serão mantidos. Depois escolha outro responsável na área da família.')) return;
+    b.disabled = true;
+    try {
+        const r = await requisicao(`/api/familias/${b.dataset.familia}/responsavel`, { method: 'DELETE', body: JSON.stringify({ cadastroId: b.dataset.pessoa }) });
+        if (!r.ok) throw new Error(await mensagem(r));
+        await carregarOrganizacao(); prepararResponsavelNoFormulario(cadastros.find(c => c._id === b.dataset.pessoa));
+        $('responsavelFamiliaAjuda').textContent = 'Função removida. A família está com responsável pendente. Você pode definir outro membro e desvincular o cadastro errado na área da família.';
+    } catch (e) { alert(e.message); } finally { b.disabled = false; }
+});

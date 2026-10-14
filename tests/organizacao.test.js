@@ -281,3 +281,43 @@ test('avaliação aberta por um membro atualiza somente a família e aparece par
     assert.equal(leitura.dados.avaliacoes[0].coelhoSavassi.score, 5);
     assert.equal(leitura.dados.moradores, 2);
 });
+
+test('remove função do responsável, mantém família e histórico, permite desvincular e definir outro', async () => {
+    const p = await pessoa(), m = await pessoa(); const f = await familia(p);
+    await api(`/familias/${f._id}/membros`, 'POST', { cadastroId: m._id, parentesco: 'Filho' });
+    await api(`/familias/${f._id}/coelho-savassi`, 'POST', entradaDomicilio());
+    assert.equal((await api(`/familias/${f._id}/responsavel`, 'DELETE', { cadastroId: p._id }, agenteB)).status, 404);
+    const r = await api(`/familias/${f._id}/responsavel`, 'DELETE', { cadastroId: p._id });
+    assert.equal(r.status, 200); assert.equal(r.dados.responsavelId, null);
+    assert.equal(r.dados.membros.length, 2); assert.equal(r.dados.avaliacoesRisco.length, 1);
+    assert.equal((await api(`/familias/${f._id}/cartao`)).dados.responsavel, 'Responsável pendente');
+    const contatoNovo = await api(`/cadastros/${m._id}`, 'PUT', { ...m, numero: '99' });
+    assert.equal(contatoNovo.status, 200); assert.equal(contatoNovo.dados.numero, '99');
+    assert.equal((await api(`/familias/${f._id}/membros/${p._id}`, 'DELETE')).status, 200);
+    assert.ok(await Cadastro.findById(p._id));
+    assert.equal((await api(`/familias/${f._id}/responsavel`, 'PUT', { cadastroId: m._id })).status, 200);
+    assert.equal((await Familia.findById(f._id)).avaliacoesRisco.length, 1);
+});
+test('responsável único pode ficar pendente sem apagar família ou ficha', async () => {
+    const p = await pessoa(); const f = await familia(p);
+    assert.equal((await api(`/familias/${f._id}/responsavel`, 'DELETE', { cadastroId: p._id })).status, 200);
+    assert.equal((await api(`/familias/${f._id}/membros/${p._id}`, 'DELETE')).status, 409);
+    assert.equal((await Familia.findById(f._id)).membros.length, 1);
+    assert.ok(await Cadastro.findById(p._id));
+});
+test('campos tabagista e LGBTQIAPN+ persistem, editam e busca aceita acentos e condições', async () => {
+    const p = await pessoa();
+    const r = await api(`/cadastros/${p._id}`, 'PUT', { ...p, nomeCompleto: 'Márcia Teste', gestante: true,
+        doencasPreexistentes: ['Câncer', 'Tabagista'], outrasDoencas: 'Depressão', lgbtqiapn: 'sim', identificacoesLgbtqiapn: ['Bissexual', 'Não binário(a)'] });
+    assert.equal(r.status, 200); assert.ok(r.dados.doencasPreexistentes.includes('Tabagista'));
+    assert.deepEqual(r.dados.identificacoesLgbtqiapn, ['Bissexual', 'Não binário(a)']);
+    for (const termo of ['marcia', 'cancer', 'CÂNCER', 'gestante', 'gestantes', 'gravida', 'tabagista', 'fumante', 'depressao', 'lgbtqia+', 'nao binario', 'marcia cancer']) {
+        const lista = await api('/cadastros?search=' + encodeURIComponent(termo));
+        assert.equal(lista.dados.length, 1, termo); assert.equal(lista.dados[0]._id, p._id);
+    }
+    assert.equal((await api('/cadastros?search=gestante', 'GET', undefined, agenteB)).dados.length, 0);
+    assert.equal((await api('/cadastros?search=nao%20gestante')).dados.length, 0);
+    const editado = await api(`/cadastros/${p._id}`, 'PUT', { ...r.dados, lgbtqiapn: 'prefere_nao_informar' });
+    assert.equal(editado.status, 200); assert.deepEqual(editado.dados.identificacoesLgbtqiapn, []);
+    assert.equal((await api('/cadastros?search=bissexual')).dados.length, 0);
+});
