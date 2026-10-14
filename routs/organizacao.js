@@ -5,6 +5,7 @@ const Cadastro = require('../models/cadastro');
 const { validarAvaliacao } = require('../lib/avaliacoes');
 const { sincronizarFamilia, aplicarContatoNasFichas, enderecoCompleto } = require('../lib/dadosFamilia');
 const { dadosCartao, gerarCartaoPDF } = require('../lib/cartaoFamilia');
+const { prepararAvaliacao } = require('../lib/coelhoSavassi');
 
 function organizacao(autenticar) {
     const router = express.Router();
@@ -23,6 +24,51 @@ function organizacao(autenticar) {
         return dados;
     }
     const consultaFamilia = (req, id) => ({ _id: id, usuarioId: req.usuario.id });
+
+    // Resolve no servidor: um membro sempre consulta e atualiza a família atual.
+    async function domicilioCadastro(req) {
+        if (!idValido(req.params.id)) return null;
+        const cadastro = await Cadastro.findOne({ ...consultaFamilia(req, req.params.id), arquivado: { $ne: true } });
+        if (!cadastro) return null;
+        const familia = await Familia.findOne({ usuarioId: req.usuario.id, 'membros.cadastroId': cadastro._id });
+        return { ficha: familia || cadastro, Modelo: familia ? Familia : Cadastro, familia: Boolean(familia), cadastro };
+    }
+    router.get('/cadastros/:id/coelho-savassi', async (req, res) => {
+        try {
+            const contexto = await domicilioCadastro(req);
+            if (!contexto) return res.status(404).json({ message: 'Cadastro não encontrado.' });
+            const { ficha, familia, cadastro } = contexto;
+            res.json({ nome: familia ? `${cadastro.nomeCompleto} — ${ficha.nome}` : `${cadastro.nomeCompleto} — domicílio sem família vinculada`,
+                moradores: familia ? ficha.membros.length : null, familiaId: familia ? ficha._id : null,
+                avaliacoes: familia ? [...cadastro.avaliacoesRisco.map(a => ({ ...a.toObject(), localRegistro: 'Histórico anterior da ficha' })), ...ficha.avaliacoesRisco.map(a => ({ ...a.toObject(), localRegistro: 'Família atual' }))].sort((a, b) => a.dataAvaliacao.localeCompare(b.dataAvaliacao)) : ficha.avaliacoesRisco || [] });
+        } catch (_) { res.status(503).json({ message: 'Não foi possível carregar a avaliação do domicílio.' }); }
+    });
+    router.post('/cadastros/:id/coelho-savassi', async (req, res) => {
+        try {
+            const contexto = await domicilioCadastro(req);
+            if (!contexto) return res.status(404).json({ message: 'Cadastro não encontrado.' });
+            const resultado = prepararAvaliacao(req.body, req.usuario);
+            if (resultado.erros.length) return res.status(422).json({ message: resultado.erros.join(' '), erros: resultado.erros });
+            const { ficha, Modelo, familia } = contexto;
+            const query = { ...consultaFamilia(req, ficha._id), ...(!familia ? { arquivado: { $ne: true } } : {}) };
+            const atualizado = await Modelo.findOneAndUpdate(query, { $push: { avaliacoesRisco: resultado.avaliacao } }, { new: true, runValidators: true });
+            if (!atualizado) return res.status(404).json({ message: 'Ficha não encontrada.' });
+            res.status(201).json({ avaliacao: atualizado.avaliacoesRisco.at(-1), familiaId: familia ? ficha._id : null });
+        } catch (_) { res.status(503).json({ message: 'Não foi possível salvar a avaliação do domicílio.' }); }
+    });
+
+    router.post('/familias/:id/coelho-savassi', async (req, res) => {
+        try {
+            if (!idValido(req.params.id)) return res.status(400).json({ message: 'Família inválida.' });
+            const query = consultaFamilia(req, req.params.id);
+            if (!await Familia.exists(query)) return res.status(404).json({ message: 'Família não encontrada.' });
+            const resultado = prepararAvaliacao(req.body, req.usuario);
+            if (resultado.erros.length) return res.status(422).json({ message: resultado.erros.join(' '), erros: resultado.erros });
+            const familia = await Familia.findOneAndUpdate(query, { $push: { avaliacoesRisco: resultado.avaliacao } }, { new: true, runValidators: true });
+            if (!familia) return res.status(404).json({ message: 'Família não encontrada.' });
+            res.status(201).json({ message: 'Escore calculado e avaliação registrada.', avaliacao: familia.avaliacoesRisco[familia.avaliacoesRisco.length - 1] });
+        } catch (_) { res.status(503).json({ message: 'Não foi possível salvar a avaliação. Tente novamente.' }); }
+    });
 
     router.get('/familias/:id/cartao', async (req, res) => {
         try {

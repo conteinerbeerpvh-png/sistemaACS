@@ -13,18 +13,22 @@ const porPagina = 5;
 function resumoRisco(registros) {
     const atuais = risco.ultimas(registros || []);
     if (!atuais.length) return '<span class="risk-badge">Risco não avaliado</span>';
-    return atuais.map(a => `<div><span class="risk-badge risk-${a.nivel}">${texto(risco.tipos[a.tipo])}: ${texto(risco.niveis[a.nivel])}</span><small> Avaliado em ${texto(formatarData(a.dataAvaliacao))}</small>${a.proximaAvaliacao ? `<p class="${risco.pendencia(a) === 'atrasada' ? 'prazo-vencido' : ''}">Reavaliar: ${texto(formatarData(a.proximaAvaliacao))}${risco.pendencia(a) === 'atrasada' ? ' — prazo vencido' : risco.pendencia(a) === 'hoje' ? ' — hoje' : ''}</p>` : '<p>Próxima avaliação não informada.</p>'}</div>`).join('');
+    return atuais.map(a => `<div><span class="risk-badge risk-${a.nivel}">${texto(risco.tipos[a.tipo])}: ${texto(risco.niveis[a.nivel])}${a.coelhoSavassi ? ` · ${a.coelhoSavassi.score} pontos` : ''}</span><small> Avaliado em ${texto(formatarData(a.dataAvaliacao))}</small>${a.proximaAvaliacao ? `<p class="${risco.pendencia(a) === 'atrasada' ? 'prazo-vencido' : ''}">Reavaliar: ${texto(formatarData(a.proximaAvaliacao))}${risco.pendencia(a) === 'atrasada' ? ' — prazo vencido' : risco.pendencia(a) === 'hoje' ? ' — hoje' : ''}</p>` : '<p>Próxima avaliação não informada.</p>'}</div>`).join('');
 }
 function familiaDaPessoa(id) { return familias.find(f => f.membros.some(m => String(m.cadastroId?._id || m.cadastroId) === id)); }
 function extrasFicha(c) {
     const f = familiaDaPessoa(c._id);
     const vinculo = f ? `<p><strong>Família:</strong> ${texto(f.nome)}${String(f.responsavelId) === c._id ? ' · Responsável' : ''}</p>` : '<p><strong>Família:</strong> não vinculada</p>';
-    return vinculo + resumoRisco(c.avaliacoesRisco);
+    return vinculo + resumoRisco(avaliacoesDaPessoa(c));
+}
+function avaliacoesDaPessoa(c) {
+    const f = familiaDaPessoa(c._id);
+    return [...(c.avaliacoesRisco || []).filter(a => !f || a.tipo !== 'familiar'), ...(f?.avaliacoesRisco || [])];
 }
 window.extrasFicha = extrasFicha;
 window.resumoRisco = resumoRisco;
 function filtrosRisco() { return { tipo: $('filtroRiscoTipo').value, nivel: $('filtroRiscoNivel').value, prazo: $('filtroRiscoPrazo').value }; }
-window.cadastrosVisiveis = () => cadastros.filter(c => risco.corresponde(c.avaliacoesRisco || [], filtrosRisco()));
+window.cadastrosVisiveis = () => cadastros.filter(c => risco.corresponde(avaliacoesDaPessoa(c), filtrosRisco()));
 for (const id of ['filtroRiscoTipo', 'filtroRiscoNivel', 'filtroRiscoPrazo']) $(id).addEventListener('change', () => { paginaPacientes = 1; exibirCadastros(); });
 
 async function carregarOrganizacao() {
@@ -95,6 +99,7 @@ window.limparOrganizacao = function () {
     familias = []; pessoasFamilia = []; familiaAberta = null; familiaEditando = null;
     novoFamiliarContexto = null; familiaDoNovoMembro = null; riscoContexto = null;
     window.limparCartoes?.();
+    window.limparCoelho?.();
     paginaPacientes = 1; paginaFamilias = 1;
     $('familiasList').replaceChildren(); $('familiaDetalhe').replaceChildren(); $('familiaDetalhe').hidden = true;
     $('familiaForm').reset(); $('riscoForm').reset(); $('riscoHistorico').replaceChildren(); $('riscoAtual').replaceChildren();
@@ -174,7 +179,7 @@ $('familiaForm').addEventListener('submit', async event => {
 $('familiasList').addEventListener('click', event => {
     const b = event.target.closest('button'); if (!b) return;
     if (b.dataset.familia) abrirFamilia(b.dataset.familia);
-    if (b.dataset.riscoFamilia) abrirRisco('familias', b.dataset.riscoFamilia);
+    if (b.dataset.riscoFamilia) window.abrirCoelhoSavassi?.(b.dataset.riscoFamilia);
     if (b.dataset.cartaoFamilia) { abrirFamilia(b.dataset.cartaoFamilia); window.abrirCartaoFamilia?.(b.dataset.cartaoFamilia); }
     if (b.dataset.editarFamilia) {
         $('familiaCadastroManual').open = true;
@@ -204,7 +209,7 @@ $('familiaDetalhe').addEventListener('click', async event => {
             if (parentesco !== null) await acaoFamilia('/membros/' + b.dataset.vinculo, 'PUT', { parentesco });
         }
         if (b.dataset.desvincular && confirm('Desvincular da família? A ficha individual será mantida.')) await acaoFamilia('/membros/' + b.dataset.desvincular, 'DELETE');
-        if (b.dataset.riscoPessoa) await abrirRisco('cadastros', b.dataset.riscoPessoa);
+        if (b.dataset.riscoPessoa) await window.abrirCoelhoSavassi?.(b.dataset.riscoPessoa, 'cadastros');
         if (b.id === 'novoMembro') {
             cancelarEdicao(); const familia = familias.find(f => f._id === familiaAberta);
             novoFamiliarContexto = { familiaId: familiaAberta, parentesco: $('membroParentesco').value };

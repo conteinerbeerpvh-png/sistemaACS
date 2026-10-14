@@ -55,7 +55,7 @@ before(async () => {
     dom.window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
     dom.window.localStorage.setItem('acs_token', jwt.sign(agente, secret));
     dom.window.localStorage.setItem('acs_usuario', JSON.stringify({ nome: agente.nome, usuario: agente.usuario }));
-    for (const arquivo of ['risco.js', 'script.js', 'organizacao.js', 'cartao.js']) vm.runInContext(fs.readFileSync(path.join(pasta, arquivo), 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
+    for (const arquivo of ['risco.js', 'script.js', 'organizacao.js', 'cartao.js', 'coelho-savassi.js', 'coelho-formulario.js']) vm.runInContext(fs.readFileSync(path.join(pasta, arquivo), 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
     await esperar(() => dom.window.document.querySelectorAll('#familiaResponsavel option').length === 3, 'carregar responsáveis');
 });
 after(async () => {
@@ -103,20 +103,22 @@ test('novo familiar herda endereço e é vinculado depois de salvar, sem duplica
     assert.equal(familia.membros.find(m => String(m.cadastroId) === familiar.id).parentesco, 'Filho');
 });
 
-test('interface registra avaliação, mostra histórico e filtra paciente avaliado', async () => {
+test('cadastro individual abre tabela do PDF, salva na família e filtra pelo risco compartilhado', async () => {
     const botao = elemento('cadastrosList').querySelector(`[data-risco="${responsavel.id}"]`);
     assert.ok(botao); botao.click();
-    await esperar(() => elemento('riscoDialog').open, 'abrir avaliação');
-    for (const [id, valor] of Object.entries({ riscoTipo: 'hipertensao', riscoNivel: 'alto', riscoData: '2020-01-01', riscoProxima: '2020-02-01', riscoProfissional: 'Profissional de Teste', riscoFuncao: 'Enfermeiro', riscoProtocolo: 'Protocolo fictício de teste', riscoVersao: 'TESTE', riscoJustificativa: '<img src=x onerror=alert(1)> — exemplo fictício' })) elemento(id).value = valor;
-    elemento('riscoConfirmacao').checked = true; enviar('riscoForm');
-    await esperar(() => elemento('riscoMensagem').textContent.includes('salva com sucesso'), 'salvar avaliação');
-    await esperar(() => elemento('cadastrosList').textContent.includes('Hipertensão: Alto'), 'atualizar ficha');
-    await esperar(() => !elemento('salvarRisco').disabled, 'concluir atualização após avaliação');
-    assert.equal(elemento('riscoHistorico').querySelectorAll('img').length, 0);
-    assert.match(elemento('riscoHistorico').textContent, /Registrado por: Agente Fictício/);
-    elemento('filtroRiscoNivel').value = 'alto'; elemento('filtroRiscoNivel').dispatchEvent(new dom.window.Event('change'));
-    assert.equal(elemento('cadastrosList').querySelectorAll('.cadastro-item').length, 1);
-    elemento('fecharRisco').click();
+    await esperar(() => elemento('coelhoDialog').open, 'abrir tabela pelo paciente');
+    for (const [id, valor] of Object.entries({ coelhoMoradores: '3', coelhoComodos: '3', coelhoSentido: 'moradores_por_comodo_titulo', coelhoSaneamento: 'true', coelhoProfissional: 'Profissional de Teste', coelhoFuncao: 'Enfermeiro' })) elemento(id).value = valor;
+    for (const input of elemento('coelhoSentinelas').querySelectorAll('input')) input.value = '0';
+    elemento('coelhoForm').dispatchEvent(new dom.window.Event('input'));
+    assert.match(elemento('coelhoResultado').textContent, /5 pontos/);
+    elemento('coelhoConfirmacao').checked = true; enviar('coelhoForm');
+    await esperar(() => !elemento('salvarCoelho').disabled, 'salvar e atualizar fichas');
+    assert.match(elemento('coelhoMensagem').textContent, /salva/);
+    assert.equal((await Cadastro.findById(responsavel.id)).avaliacoesRisco.length, 0);
+    assert.equal((await Familia.findOne({ responsavelId: responsavel.id })).avaliacoesRisco.at(-1).coelhoSavassi.score, 5);
+    elemento('filtroRiscoNivel').value = 'r1'; elemento('filtroRiscoNivel').dispatchEvent(new dom.window.Event('change'));
+    assert.equal(elemento('cadastrosList').querySelectorAll('.cadastro-item').length, 3);
+    elemento('fecharCoelho').click();
 });
 
 test('marcar responsável no novo paciente cria família e abre membros; editar reaproveita a mesma família', async () => {
@@ -233,6 +235,37 @@ test('quando o aparelho não compartilha arquivos, baixa PDF e abre conversa par
     assert.equal(arquivosCompartilhados.length, 1);
     dom.window.navigator.canShare = () => true;
     await esperar(() => !elemento('whatsappCartao').disabled, 'concluir fallback');
+});
+
+test('tela de risco familiar calcula escore ao preencher sentinelas e salva resultado confirmado pelo servidor', async () => {
+    const f = await Familia.findOne({ nome: /Responsável com Nova Tentativa/ });
+    await dom.window.abrirCoelhoSavassi(f.id);
+    assert.equal(elemento('coelhoDialog').open, true);
+    elemento('coelhoMoradores').value = '2'; elemento('coelhoComodos').value = '4'; elemento('coelhoSentido').value = 'comodos_por_morador_pdf'; elemento('coelhoSaneamento').value = 'true';
+    for (const input of elemento('coelhoSentinelas').querySelectorAll('input')) input.value = '0';
+    elemento('sentinela-acamado').value = '1';
+    elemento('coelhoForm').dispatchEvent(new dom.window.Event('input'));
+    assert.match(elemento('coelhoResultado').textContent, /9 pontos/);
+    assert.match(elemento('coelhoResultado').textContent, /não definida/);
+    elemento('coelhoProfissional').value = 'Profissional Fictício'; elemento('coelhoFuncao').value = 'Enfermeiro'; elemento('coelhoConfirmacao').checked = true;
+    enviar('coelhoForm');
+    await esperar(() => !elemento('salvarCoelho').disabled, 'salvar escore familiar');
+    assert.match(elemento('coelhoMensagem').textContent, /salva/);
+    assert.equal((await Familia.findById(f.id)).avaliacoesRisco.at(-1).coelhoSavassi.score, 9);
+    elemento('fecharCoelho').click();
+});
+
+test('paciente sem família abre tabela e registra avaliação do seu domicílio', async () => {
+    const p = await Cadastro.create({ usuarioId: agente.id, nomeCompleto: 'Paciente Avulso', cpf: '00000000088', dataNascimento: '1990-01-01', endereco: 'Rua Fictícia', numero: '10', bairro: 'Bairro Fictício', telefone: '00000000000', sexo: 'F', criancaDeZeroANove: false, gestante: false });
+    await dom.window.abrirCoelhoSavassi(p.id, 'cadastros');
+    assert.equal(elemento('coelhoDialog').open, true);
+    assert.match(elemento('coelhoFamilia').textContent, /sem família vinculada/);
+    for (const [id, valor] of Object.entries({ coelhoMoradores: '1', coelhoComodos: '1', coelhoSentido: 'moradores_por_comodo_titulo', coelhoSaneamento: 'true', coelhoProfissional: 'Profissional de Teste', coelhoFuncao: 'Enfermeiro' })) elemento(id).value = valor;
+    for (const input of elemento('coelhoSentinelas').querySelectorAll('input')) input.value = '0';
+    elemento('coelhoConfirmacao').checked = true; enviar('coelhoForm');
+    await esperar(() => !elemento('salvarCoelho').disabled, 'salvar domicílio avulso');
+    assert.equal((await Cadastro.findById(p.id)).avaliacoesRisco.at(-1).coelhoSavassi.score, 5);
+    elemento('fecharCoelho').click();
 });
 
 test('sair limpa fichas, famílias, contexto de edição e histórico sensível', async () => {

@@ -154,7 +154,7 @@ $('cadastrosList').addEventListener('click', event => {
     }
 
     if (target.dataset.restaurar) { restaurarCadastro(target.dataset.restaurar); return; }
-    if (target.dataset.risco) { window.abrirRisco?.('cadastros', target.dataset.risco); return; }
+    if (target.dataset.risco) { window.abrirCoelhoSavassi?.(target.dataset.risco, 'cadastros'); return; }
     if (!id) return;
     if (target.dataset.editar) editarCadastro(id);
     else if (target.dataset.imprimir) imprimirCadastro(id);

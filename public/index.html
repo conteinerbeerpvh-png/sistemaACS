@@ -127,8 +127,8 @@
             </div>
             <div class="form-group"><label for="listaEstado">Mostrar cadastros</label><select id="listaEstado"><option value="ativos">Ativos</option><option value="arquivados">Arquivados (permite restaurar)</option></select></div>
             <div class="risk-filters form-row">
-                <div class="form-group"><label for="filtroRiscoTipo">Tipo de risco</label><select id="filtroRiscoTipo"><option value="">Todos os tipos</option><option value="geral">Avaliação geral</option><option value="hipertensao">Hipertensão</option><option value="diabetes">Diabetes</option><option value="cardiovascular">Cardiovascular</option><option value="gestacao">Gestação</option></select></div>
-                <div class="form-group"><label for="filtroRiscoNivel">Classificação</label><select id="filtroRiscoNivel"><option value="">Todas</option><option value="nao_avaliado">Não avaliado</option><option value="baixo">Baixo</option><option value="moderado">Moderado</option><option value="alto">Alto</option><option value="muito_alto">Muito alto</option></select></div>
+                <div class="form-group"><label for="filtroRiscoTipo">Tipo de risco</label><select id="filtroRiscoTipo"><option value="">Todos os tipos</option><option value="familiar">Vulnerabilidade familiar (PDF)</option><option value="geral">Avaliação geral</option><option value="hipertensao">Hipertensão</option><option value="diabetes">Diabetes</option><option value="cardiovascular">Cardiovascular</option><option value="gestacao">Gestação</option></select></div>
+                <div class="form-group"><label for="filtroRiscoNivel">Classificação</label><select id="filtroRiscoNivel"><option value="">Todas</option><option value="nao_avaliado">Não avaliado</option><option value="abaixo_r1">Abaixo da faixa R1</option><option value="r1">R1 — Risco menor</option><option value="r2">R2 — Risco médio</option><option value="r3">R3 — Risco máximo</option><option value="pendente_pdf">Escore 9 — Pendente</option><option value="baixo">Baixo</option><option value="moderado">Moderado</option><option value="alto">Alto</option><option value="muito_alto">Muito alto</option></select></div>
                 <div class="form-group"><label for="filtroRiscoPrazo">Reavaliação</label><select id="filtroRiscoPrazo"><option value="">Todas</option><option value="atrasada">Prazo vencido</option><option value="hoje">Hoje</option><option value="sem_data">Sem data definida</option></select></div>
             </div>
             <div id="statsBar" class="stats-bar" hidden><span id="resultCount"></span></div>
@@ -198,14 +198,38 @@
         <p class="help-text">Para corrigir uma avaliação, adicione um novo registro com a justificativa. O registro anterior será mantido.</p>
         <div id="riscoHistorico"></div>
     </dialog>
+    <dialog id="coelhoDialog" aria-labelledby="coelhoTitulo">
+        <div class="dialog-header"><h2 id="coelhoTitulo">Risco familiar - Coelho-Savassi</h2><button id="fecharCoelho" class="btn-cancel" type="button">Fechar</button></div>
+        <p id="coelhoFamilia" class="help-text"></p>
+        <p class="notice">Informe as quantidades verificadas na família. Use 0 apenas quando a ausência foi confirmada. O sistema calcula os pontos; não diagnostica doenças. <a href="docs/coelho-savassi-tabela.pdf" target="_blank" rel="noopener">Consultar o PDF da tabela</a>.</p>
+        <form id="coelhoForm">
+            <div class="form-row"><div class="form-group"><label for="coelhoData">Data da avaliação *</label><input id="coelhoData" type="date" required></div><div class="form-group"><label for="coelhoProxima">Próxima avaliação definida pela equipe</label><input id="coelhoProxima" type="date"></div></div>
+            <div class="form-row"><div class="form-group"><label for="coelhoMoradores">Número de moradores *</label><input id="coelhoMoradores" type="number" min="1" max="500" step="1" required></div><div class="form-group"><label for="coelhoComodos">Número de cômodos *</label><input id="coelhoComodos" type="number" min="1" max="500" step="1" required></div></div>
+            <p class="help-text">Cômodos: incluir banheiro, cozinha e compartimentos separados por paredes. Excluir corredores, alpendres, varandas abertas, garagens e depósitos, conforme a tabela.</p>
+            <div class="form-group"><label for="coelhoSentido">Sentido da divisão - confirme com a equipe *</label><select id="coelhoSentido" required><option value="">Escolha explicitamente...</option><option value="comodos_por_morador_pdf">Cômodos ÷ moradores (descrição do PDF)</option><option value="moradores_por_comodo_titulo">Moradores ÷ cômodos (título da sentinela)</option></select><small>O PDF inverte o sentido entre título e descrição. Para relação &lt;1, esta versão usa 1 ponto, exatamente como o PDF enviado.</small></div>
+            <div class="form-group"><label for="coelhoSaneamento">Baixas condições de saneamento? * (3 pontos por domicílio)</label><select id="coelhoSaneamento" required><option value="">Selecione...</option><option value="true">Sim</option><option value="false">Não</option></select></div>
+            <h3>Quantidade de pessoas por sentinela</h3><p class="help-text">Uma pessoa pode aparecer em mais de uma sentinela. Cada quantidade é multiplicada pelo peso indicado. Saneamento e relação de ocupação são contados uma vez por domicílio.</p>
+            <div id="coelhoSentinelas"></div>
+            <div class="notice" id="coelhoResultado" role="status">Preencha todos os dados para calcular o escore.</div>
+            <div class="form-row"><div class="form-group"><label for="coelhoProfissional">Profissional responsável *</label><input id="coelhoProfissional" maxlength="150" required></div><div class="form-group"><label for="coelhoFuncao">Função *</label><input id="coelhoFuncao" maxlength="100" required></div></div>
+            <div class="form-group"><label for="coelhoObservacoes">Observações da coleta</label><textarea id="coelhoObservacoes" maxlength="3000"></textarea></div>
+            <div class="form-group"><label for="coelhoPlano">Plano de acompanhamento da equipe</label><textarea id="coelhoPlano" maxlength="3000"></textarea></div>
+            <label class="confirmacao"><input id="coelhoConfirmacao" type="checkbox" required> Confirmo a coleta, as quantidades, as definições das sentinelas e o sentido de divisão escolhido.</label>
+            <button id="salvarCoelho" class="btn-primary">Calcular e salvar avaliação familiar</button>
+            <p id="coelhoMensagem" class="help-text" role="status"></p>
+        </form>
+        <h3>Histórico do domicílio</h3><div id="coelhoHistorico"></div>
+    </dialog>
     <dialog id="cartaoDialog" aria-labelledby="cartaoTitulo">
         <div class="dialog-header"><h2 id="cartaoTitulo">Cartão da família - frente e verso</h2><button type="button" id="fecharCartao" class="btn-cancel">Fechar</button></div>
         <div id="cartaoVisual"></div>
     </dialog>
 </div>
 <script src="risco.js?v=1"></script>
-<script src="script.js?v=18"></script>
-<script src="organizacao.js?v=3"></script>
+<script src="script.js?v=19"></script>
+<script src="organizacao.js?v=5"></script>
 <script src="cartao.js?v=1"></script>
+<script src="coelho-savassi.js?v=1"></script>
+<script src="coelho-formulario.js?v=2"></script>
 </body>
 </html>

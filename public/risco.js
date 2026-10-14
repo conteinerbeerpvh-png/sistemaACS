@@ -4,7 +4,7 @@
     else root.RiscoACS = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     const tipos = { geral: 'Avaliação geral', hipertensao: 'Hipertensão', diabetes: 'Diabetes', cardiovascular: 'Cardiovascular', gestacao: 'Gestação', familiar: 'Vulnerabilidade familiar' };
-    const niveis = { baixo: 'Baixo', moderado: 'Moderado', alto: 'Alto', muito_alto: 'Muito alto' };
+    const niveis = { baixo: 'Baixo', moderado: 'Moderado', alto: 'Alto', muito_alto: 'Muito alto', abaixo_r1: 'Abaixo da faixa R1 do PDF', r1: 'R1 - Risco menor', r2: 'R2 - Risco médio', r3: 'R3 - Risco máximo', pendente_pdf: 'Escore 9 - classificação pendente no PDF' };
     function hoje() {
         const partes = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Manaus', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
         const valores = Object.fromEntries(partes.map(p => [p.type, p.value]));

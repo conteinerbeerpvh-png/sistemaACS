@@ -8,6 +8,7 @@ const Cadastro = require('../models/cadastro');
 const Familia = require('../models/familia');
 const Usuario = require('../models/usuario');
 const risco = require('../public/risco');
+const escala = require('../public/coelho-savassi');
 let mongo, server, url;
 const secret = 'chave-exclusiva-de-testes-ficticios-com-mais-de-32-caracteres';
 const agenteA = { id: new mongoose.Types.ObjectId().toString(), nome: 'Agente A', usuario: 'agente-a' };
@@ -234,4 +235,49 @@ test('cartão acrescenta versos quando a família ultrapassa oito pessoas, sem o
     assert.equal(pdf.status, 200);
     const bytes = Buffer.from(await pdf.arrayBuffer());
     assert.equal((bytes.toString('latin1').match(/\/Type \/Page\b/g) || []).length, 3);
+});
+
+test('avaliação Coelho-Savassi calcula no servidor, mantém histórico anterior e protege acesso', async () => {
+    const p = await pessoa(); const f = await familia(p);
+    await api(`/familias/${f._id}/risco`, 'POST', { ...avaliacao, tipo: 'familiar' });
+    const dados = { moradores: 2, comodos: 4, sentidoRelacao: 'comodos_por_morador_pdf', baixoSaneamento: true,
+        quantidades: Object.fromEntries(escala.sentinelas.map(s => [s.id, 0])), dataAvaliacao: '2021-01-01',
+        profissional: 'Profissional Fictício', funcaoProfissional: 'Enfermeiro', confirmacao: true, score: 999, nivel: 'r3' };
+    dados.quantidades.acamado = 1;
+    const r = await api(`/familias/${f._id}/coelho-savassi`, 'POST', dados);
+    assert.equal(r.status, 201); assert.equal(r.dados.avaliacao.coelhoSavassi.score, 9);
+    assert.equal(r.dados.avaliacao.nivel, 'pendente_pdf'); assert.equal(r.dados.avaliacao.registradoPor, agenteA.id);
+    assert.equal((await Familia.findById(f._id)).avaliacoesRisco.length, 2);
+    assert.equal((await api(`/familias/${f._id}/coelho-savassi`, 'POST', dados, agenteB)).status, 404);
+    assert.equal((await api(`/familias/${f._id}/coelho-savassi`, 'POST', { ...dados, sentidoRelacao: '' })).status, 422);
+    assert.equal((await Familia.findById(f._id)).avaliacoesRisco.length, 2);
+});
+
+function entradaDomicilio() {
+    return { moradores: 1, comodos: 1, sentidoRelacao: 'moradores_por_comodo_titulo', baixoSaneamento: true,
+        quantidades: Object.fromEntries(escala.sentinelas.map(s => [s.id, 0])), dataAvaliacao: '2021-01-01',
+        profissional: 'Profissional Fictício', funcaoProfissional: 'Enfermeiro', confirmacao: true, score: 999 };
+}
+test('cadastro sem família registra escore domiciliar calculado sem apagar histórico e protege acesso', async () => {
+    const p = await pessoa(); await api(`/cadastros/${p._id}/risco`, 'POST', avaliacao);
+    assert.equal((await api(`/cadastros/${p._id}/coelho-savassi`, 'GET', undefined, agenteB)).status, 404);
+    assert.equal((await api(`/cadastros/${p._id}/coelho-savassi`, 'POST', entradaDomicilio(), agenteB)).status, 404);
+    assert.equal((await api(`/cadastros/${p._id}/coelho-savassi`, 'POST', entradaDomicilio(), null)).status, 401);
+    const r = await api(`/cadastros/${p._id}/coelho-savassi`, 'POST', entradaDomicilio());
+    assert.equal(r.status, 201); assert.equal(r.dados.familiaId, null);
+    assert.equal(r.dados.avaliacao.coelhoSavassi.score, 5); assert.equal(r.dados.avaliacao.tipo, 'familiar');
+    assert.equal((await Cadastro.findById(p._id)).avaliacoesRisco.length, 2);
+    assert.equal((await api(`/cadastros/${p._id}/coelho-savassi`)).dados.avaliacoes.length, 2);
+    assert.equal((await api(`/cadastros/${p._id}/coelho-savassi`, 'POST', { ...entradaDomicilio(), moradores: null })).status, 422);
+});
+test('avaliação aberta por um membro atualiza somente a família e aparece para todos os membros', async () => {
+    const p = await pessoa(), m = await pessoa(); const f = await familia(p);
+    await api(`/familias/${f._id}/membros`, 'POST', { cadastroId: m._id, parentesco: 'Filho' });
+    const r = await api(`/cadastros/${m._id}/coelho-savassi`, 'POST', entradaDomicilio());
+    assert.equal(r.status, 201); assert.equal(r.dados.familiaId, f._id);
+    assert.equal((await Cadastro.findById(m._id)).avaliacoesRisco.length, 0);
+    assert.equal((await Familia.findById(f._id)).avaliacoesRisco.length, 1);
+    const leitura = await api(`/cadastros/${p._id}/coelho-savassi`);
+    assert.equal(leitura.dados.avaliacoes[0].coelhoSavassi.score, 5);
+    assert.equal(leitura.dados.moradores, 2);
 });

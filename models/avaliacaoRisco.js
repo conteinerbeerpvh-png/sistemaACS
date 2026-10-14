@@ -15,5 +15,6 @@ module.exports = new mongoose.Schema({
     registradoEm: { type: Date, default: Date.now, immutable: true },
     registradoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true, immutable: true },
     nomeRegistrador: { type: String, required: true, immutable: true },
-    origem: { type: String, enum: ['registro_profissional'], default: 'registro_profissional', immutable: true }
+    origem: { type: String, enum: ['registro_profissional', 'calculo_coelho_savassi'], default: 'registro_profissional', immutable: true },
+    coelhoSavassi: { type: mongoose.Schema.Types.Mixed, default: undefined }
 });
