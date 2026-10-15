@@ -88,3 +88,14 @@ ATUALIZAÇÃO V7 - CADASTRO E GERENCIAMENTO EM MODAIS
 - A lista mantém sua posição ao fechar. Escape fecha a janela atual.
 - Cancelar o cadastro descarta o formulário sem gravar.
 - Não exige alterações no banco ou em variáveis de ambiente.
+
+ATUALIZAÇÃO V8 - CELULAR RESPONSIVO E PWA
+- Substitua TODOS os arquivos deste ZIP no repositório.
+- Inclui manifest.webmanifest, sw.js, pwa.js, offline.html, offline.js e assets/icons.
+- Corrige o botão Voltar/Fechar que espremia o título nos modais.
+- Janelas e campos se adaptam à largura e altura disponível no celular.
+- Após publicar em HTTPS, abra o site e toque em Instalar aplicativo.
+- iPhone: Safari > Compartilhar > Adicionar à Tela de Início.
+- Consultas e salvamentos continuam exigindo internet. Não há cadastro offline.
+- O cache do PWA não guarda fichas de pacientes nem cartões.
+- Não precisa mudar o banco nem adicionar variáveis de ambiente.

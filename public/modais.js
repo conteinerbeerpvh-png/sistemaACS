@@ -1,5 +1,14 @@
 // Dialog nativo mantém o foco e torna o conteúdo de fundo inativo.
 (() => {
+    function ajustarViewport() {
+        const v = window.visualViewport;
+        document.documentElement.style.setProperty('--viewport-height', `${Math.min(v?.height || window.innerHeight, window.innerHeight)}px`);
+        document.documentElement.style.setProperty('--viewport-top', `${v?.offsetTop || 0}px`);
+    }
+    ajustarViewport();
+    window.addEventListener('resize', ajustarViewport);
+    window.visualViewport?.addEventListener('resize', ajustarViewport);
+    window.visualViewport?.addEventListener('scroll', ajustarViewport);
     const retornos = new Map();
     const ordem = [];
     let posicao = null;
@@ -16,6 +25,7 @@
         }
     }
     window.abrirModal = id => {
+        ajustarViewport();
         const dialog = document.getElementById(id);
         if (!dialog || dialog.open) return;
         retornos.set(dialog, document.activeElement);

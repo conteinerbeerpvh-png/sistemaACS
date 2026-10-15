@@ -25,7 +25,9 @@ function criarApp(opcoes = {}) {
 
     app.use(cors());
     app.use(express.json({ limit: '100kb' }));
-    app.use(express.static(path.join(__dirname, 'public')));
+    app.use(express.static(path.join(__dirname, 'public'), { setHeaders(res, arquivo) {
+        if (['sw.js', 'manifest.webmanifest', 'index.html'].includes(path.basename(arquivo))) res.setHeader('Cache-Control', 'no-cache');
+    } }));
 
     function bancoDisponivel(req, res, next) {
         if (mongoose.connection.readyState !== 1) return res.status(503).json({ message: 'Banco de dados indisponível. Verifique MONGODB_URI.' });

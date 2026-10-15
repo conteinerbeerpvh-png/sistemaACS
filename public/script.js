@@ -16,6 +16,7 @@ async function requisicao(url, options = {}) {
     if (response.status === 401 && token) sair();
     return response;
   } catch (error) {
+    if (!navigator.onLine) throw new Error('Sem conexão. Reconecte e confira a ficha antes de repetir um salvamento.');
     if (error.name === 'AbortError') throw new Error('O servidor não respondeu em 8 segundos. Tente novamente.');
     throw error;
   } finally { clearTimeout(timeout); }

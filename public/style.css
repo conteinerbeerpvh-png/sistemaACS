@@ -512,7 +512,7 @@ main {
     }
 }
 
-#familiaCadastroManual { margin: 15px 0; }
+#familiaCadastroManual { margin: auto; }
 #familiaCadastroManual summary { cursor: pointer; color: #4f62c8; font-weight: 600; margin-bottom: 15px; }
 
 main { display: block; }
@@ -546,17 +546,65 @@ main { display: block; }
 
 /* Janelas de ação: a lista permanece na mesma posição ao fechar. */
 body.modal-aberto { position: fixed; width: 100%; overflow: hidden; }
-dialog { padding: 0 20px 20px; max-height: calc(100dvh - 32px); overscroll-behavior: contain; scrollbar-gutter: stable; overflow-x: hidden; }
+dialog { padding: 0 20px 20px; max-height: calc(var(--viewport-height, 100dvh) - 32px); overscroll-behavior: contain; scroll-padding-block: 88px 100px; scrollbar-gutter: stable; overflow-x: hidden; }
 dialog:not([open]) { display: none; }
 .dialog-header { position: sticky; top: 0; z-index: 2; padding: 16px 0; background: #fff; border-bottom: 1px solid #e2e8f0; margin-bottom: 16px; }
-.dialog-header h2 { font-size: 21px; margin: 0; overflow-wrap: anywhere; }
-.dialog-header button { flex: 0 0 auto; min-height: 44px; }
+.dialog-header h2 { flex: 1 1 0; min-width: 0; font-size: 21px; margin: 0; overflow-wrap: break-word; }
+.dialog-header button { flex: 0 0 auto; width: auto; max-width: 40%; min-height: 44px; padding: 10px 14px; white-space: normal; }
 dialog .form-buttons { position: sticky; bottom: -20px; background: #fff; padding: 14px 0; border-top: 1px solid #e2e8f0; z-index: 1; }
 dialog button { min-height: 44px; }
 @media (max-width: 600px) {
-    dialog, #cartaoDialog { width: calc(100% - 16px); max-width: none; max-height: calc(100dvh - 16px); padding: 0 14px 14px; border-radius: 12px; }
+    dialog, #cartaoDialog { width: calc(100% - 16px); max-width: none; max-height: calc(var(--viewport-height, 100dvh) - 16px); padding: 0 14px 14px; border-radius: 12px; }
     .dialog-header h2 { font-size: 18px; }
     dialog input, dialog select, dialog textarea { font-size: 16px; }
     dialog .form-row { flex-direction: column; gap: 0; }
     dialog .form-buttons { bottom: -14px; }
+}
+
+/* Limites de conteúdo em telas estreitas e na área útil do PWA. */
+html { min-width: 0; scrollbar-gutter: stable; }
+.container, main, .card, dialog, fieldset, .ocr-container, .actions-bar, .cadastro-item { min-width: 0; }
+img { max-width: 100%; }
+input, select, textarea { max-width: 100%; }
+fieldset { min-inline-size: 0; }
+.doencas > .form-group, .doencas > p, .doencas > div, .doencas details { flex-basis: 100%; width: 100%; min-width: 0; }
+.doencas label { overflow-wrap: anywhere; }
+.doencas input[type="checkbox"] { width: auto; flex: 0 0 auto; }
+.cadastro-item, .auth-card, .user-menu, .risk-badge, .notice { overflow-wrap: anywhere; }
+.cadastro-actions { flex-wrap: wrap; }
+.dialog-header { gap: 12px; align-items: center; }
+.coelho-pontos { table-layout: fixed; overflow-wrap: anywhere; }
+.coelho-pontos th:first-child { width: 48%; }
+.linha-cartao span, .cartao-header div { min-width: 0; overflow-wrap: anywhere; }
+.pwa-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; max-width: 1200px; margin: 0 auto 12px; color: #fff; font-size: 14px; }
+.pwa-bar:has(button[hidden]):not(:has(button:not([hidden]))):has(p:empty) { display: none; }
+.pwa-bar button { min-height: 44px; width: auto; }
+.pwa-bar p { flex: 1 1 200px; }
+.pwa-offline { background: #fff3cd; color: #654900; padding: 10px; border-radius: 8px; }
+#instalacaoDialog li { margin: 12px 0 12px 20px; line-height: 1.5; }
+@media (max-width: 768px) {
+    .dialog-header { flex-direction: row; text-align: left; }
+    .dialog-header button.btn-cancel { width: auto; max-width: 40%; }
+    dialog .cadastro-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    dialog .cadastro-actions button { width: 100%; min-width: 0; overflow-wrap: anywhere; }
+    .app-nav button { min-width: 0; overflow-wrap: break-word; }
+}
+@media (max-width: 600px) {
+    body { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+    dialog, #cartaoDialog { margin: auto; width: calc(100% - 16px); max-width: calc(100% - 16px); max-height: calc(var(--viewport-height, 100dvh) - 16px); }
+    .dialog-header h2 { font-size: 18px; line-height: 1.35; }
+    .dialog-header button { font-size: 14px; padding: 10px 12px; }
+    .auth-card { padding: 22px 18px; }
+    input, select, textarea { font-size: 16px !important; }
+    .coelho-criterio { grid-template-columns: minmax(0, 1fr) 70px; gap: 8px; }
+}
+@media (max-width: 340px) {
+    dialog .cadastro-actions { grid-template-columns: minmax(0, 1fr); }
+    .dialog-header { gap: 8px; }
+    .dialog-header h2 { font-size: 17px; }
+}
+
+.dialog-header h2:focus { outline: none; }
+@media (max-width: 600px) {
+    dialog, #cartaoDialog { top: calc(var(--viewport-top, 0px) + 8px + env(safe-area-inset-top)); bottom: auto; margin: 0 auto; max-height: calc(var(--viewport-height, 100dvh) - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 }

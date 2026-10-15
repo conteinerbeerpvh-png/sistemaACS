@@ -55,7 +55,7 @@ before(async () => {
     dom.window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
     dom.window.localStorage.setItem('acs_token', jwt.sign(agente, secret));
     dom.window.localStorage.setItem('acs_usuario', JSON.stringify({ nome: agente.nome, usuario: agente.usuario }));
-    for (const arquivo of ['modais.js', 'pesquisa.js', 'risco.js', 'script.js', 'organizacao.js', 'cartao.js', 'coelho-savassi.js', 'coelho-formulario.js']) vm.runInContext(fs.readFileSync(path.join(pasta, arquivo), 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
+    for (const arquivo of ['modais.js', 'pesquisa.js', 'risco.js', 'script.js', 'organizacao.js', 'cartao.js', 'coelho-savassi.js', 'coelho-formulario.js', 'pwa.js']) vm.runInContext(fs.readFileSync(path.join(pasta, arquivo), 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
     await esperar(() => dom.window.document.querySelectorAll('#familiaResponsavel option').length === 3, 'carregar responsáveis');
 });
 after(async () => {
@@ -361,6 +361,20 @@ test('adicionar familiar e editar parentesco usam modais e voltar preserva a fam
     await dom.window.carregarOrganizacao();
     assert.equal(elemento('familiaDialog').open, false, 'atualizar listas não reabre janela fechada');
     assert.equal(dom.window.document.body.classList.contains('modal-aberto'), false);
+});
+
+test('instalação tem instruções em modal e estado sem conexão é visível', async () => {
+    dom.window.fecharTodosModais(); elemento('instalarApp').click();
+    assert.equal(elemento('instalacaoDialog').open, true);
+    assert.equal(elemento('instalacaoDialog').closest('#appScreen'), null, 'instruções disponíveis também antes do login');
+    assert.match(elemento('instalacaoDialog').textContent, /Adicionar à Tela de Início/);
+    elemento('fecharInstalacao').click();
+    Object.defineProperty(dom.window.navigator, 'onLine', { value: false, configurable: true });
+    dom.window.dispatchEvent(new dom.window.Event('offline'));
+    assert.match(elemento('pwaStatus').textContent, /Sem conexão/);
+    Object.defineProperty(dom.window.navigator, 'onLine', { value: true, configurable: true });
+    dom.window.dispatchEvent(new dom.window.Event('online'));
+    assert.equal(elemento('pwaStatus').textContent, '');
 });
 
 test('sair limpa fichas, famílias, contexto de edição e histórico sensível', async () => {
