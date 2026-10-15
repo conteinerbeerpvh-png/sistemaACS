@@ -107,3 +107,11 @@ ATUALIZAÇÃO V9 - REMOVER CADASTRO DA FAMÍLIA SEM SUBSTITUIR RESPONSÁVEL
 - A ficha individual não é excluída; pode ser vinculada a outra família depois.
 - Envie todos os arquivos, incluindo lib/indiceVinculos.js e o modelo de família atualizado.
 - A atualização prepara automaticamente o índice de vínculos, sem apagar documentos.
+
+ATUALIZAÇÃO V10 - EXCLUIR FAMÍLIAS VAZIAS
+- Botão Excluir família aparece quando não há membros.
+- Sem avaliações: exclui o registro da família.
+- Com avaliações: retira da lista ativa e preserva em Arquivadas com histórico.
+- Use Mostrar famílias para consultar ou restaurar arquivadas.
+- Nenhuma ficha individual é apagada.
+- Substitua todos os arquivos deste ZIP no repositório.

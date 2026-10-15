@@ -90,6 +90,7 @@
             <p class="help-text">Vincule fichas individuais à família sem duplicar cadastros. Uma pessoa pertence a uma única família na sua lista.</p>
             <button id="novaFamilia" type="button" class="btn-primary">Criar família</button>
             <p id="familiaMensagem" role="status" class="help-text"></p>
+            <div class="form-group"><label for="familiasEstado">Mostrar famílias</label><select id="familiasEstado"><option value="ativas">Ativas</option><option value="arquivadas">Arquivadas com histórico</option></select></div>
             <div class="form-group"><label for="familiaBusca">Buscar família, responsável, membro ou microárea</label><input id="familiaBusca" placeholder="Digite para buscar"></div>
             <div id="familiasList"></div>
             <div id="familiasPaginacao" class="pagination"></div>
@@ -214,6 +215,10 @@
                 <div class="form-buttons"><button class="btn-primary" id="salvarFamilia">Criar família</button><button type="button" id="cancelarFamilia" class="btn-cancel" hidden>Cancelar edição</button></div>
             </form>
             </dialog>
+    <dialog id="historicoFamiliaDialog" aria-labelledby="historicoFamiliaTitulo">
+        <div class="dialog-header"><h2 id="historicoFamiliaTitulo">Histórico da família</h2><button id="fecharHistoricoFamilia" type="button" class="btn-cancel">Fechar</button></div>
+        <div id="historicoFamiliaConteudo"></div>
+    </dialog>
     <dialog id="familiaDialog" aria-labelledby="familiaDialogTitulo">
         <div class="dialog-header"><h2 id="familiaDialogTitulo">Família e membros</h2><button id="fecharFamilia" type="button" class="btn-cancel">Fechar</button></div>
         <section id="familiaDetalhe" hidden></section>
@@ -293,7 +298,7 @@
 <script src="pesquisa.js?v=1"></script>
 <script src="risco.js?v=1"></script>
 <script src="script.js?v=22"></script>
-<script src="organizacao.js?v=9"></script>
+<script src="organizacao.js?v=10"></script>
 <script src="cartao.js?v=2"></script>
 <script src="coelho-savassi.js?v=1"></script>
 <script src="coelho-formulario.js?v=3"></script>

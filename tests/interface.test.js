@@ -386,6 +386,26 @@ test('responsável pode ser removido diretamente pela família ou edição, sem 
     elemento('fecharCadastro').click();
 });
 
+test('famílias vazias podem ser excluídas; com avaliações saem da lista ativa e mostram histórico nas arquivadas', async () => {
+    dom.window.fecharTodosModais();
+    const vazia = await Familia.findOne({ nome: /Nova Tentativa/ });
+    assert.equal(vazia.membros.length, 0);
+    elemento('familiasList').querySelector(`[data-excluir-familia="${vazia.id}"]`).click();
+    await esperar(async () => (await Familia.findById(vazia.id)).arquivado === true, 'arquivar família com histórico');
+    await esperar(() => !elemento('familiasList').querySelector(`[data-familia="${vazia.id}"]`), 'retirar da lista ativa');
+    elemento('familiasEstado').value = 'arquivadas'; elemento('familiasEstado').dispatchEvent(new dom.window.Event('change'));
+    await esperar(() => elemento('familiasList').querySelector(`[data-historico-familia="${vazia.id}"]`), 'listar arquivadas');
+    elemento('familiasList').querySelector(`[data-historico-familia="${vazia.id}"]`).click();
+    await esperar(() => elemento('historicoFamiliaDialog').open, 'abrir histórico arquivado');
+    assert.match(elemento('historicoFamiliaConteudo').textContent, /9 pontos/);
+    elemento('fecharHistoricoFamilia').click();
+    const semHistorico = await Familia.create({ usuarioId: agente.id, nome: 'Família Criada por Engano', membros: [], responsavelId: null });
+    elemento('familiasEstado').value = 'ativas'; await dom.window.carregarOrganizacao();
+    elemento('familiasList').querySelector(`[data-excluir-familia="${semHistorico.id}"]`).click();
+    await esperar(async () => !(await Familia.findById(semHistorico.id)), 'excluir família vazia sem avaliações');
+    await esperar(() => !elemento('familiasList').querySelector(`[data-excluir-familia="${semHistorico.id}"]`), 'atualizar lista após exclusão');
+});
+
 test('instalação tem instruções em modal e estado sem conexão é visível', async () => {
     dom.window.fecharTodosModais(); elemento('instalarApp').click();
     assert.equal(elemento('instalacaoDialog').open, true);

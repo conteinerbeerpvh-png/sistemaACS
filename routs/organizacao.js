@@ -24,7 +24,7 @@ function organizacao(autenticar) {
         if (!dados.nome) throw new Error('Nome obrigatório');
         return dados;
     }
-    const consultaFamilia = (req, id) => ({ _id: id, usuarioId: req.usuario.id });
+    const consultaFamilia = (req, id) => ({ _id: id, usuarioId: req.usuario.id, arquivado: { $ne: true } });
 
     // Resolve no servidor: um membro sempre consulta e atualiza a família atual.
     async function domicilioCadastro(req) {
@@ -93,7 +93,7 @@ function organizacao(autenticar) {
 
     router.get('/familias', async (req, res) => {
         try {
-            const familias = await Familia.find({ usuarioId: req.usuario.id }).sort({ nome: 1 }).populate({
+            const familias = await Familia.find({ usuarioId: req.usuario.id, arquivado: req.query.arquivadas === '1' ? true : { $ne: true } }).sort({ nome: 1 }).populate({
                 path: 'membros.cadastroId', select: 'nomeCompleto cpf telefone dataNascimento endereco numero bairro arquivado', match: { usuarioId: req.usuario.id }
             }).lean();
             const membros = familias.flatMap(f => f.membros.map(m => m.cadastroId).filter(Boolean));
@@ -107,6 +107,35 @@ function organizacao(autenticar) {
             res.json(familias);
         } catch (_) { res.status(503).json({ message: 'Não foi possível carregar as famílias.' }); }
     });
+    router.delete('/familias/:id', async (req, res) => {
+        try {
+            if (!idValido(req.params.id)) return res.status(400).json({ message: 'Família inválida.' });
+            const vazia = { ...consultaFamilia(req, req.params.id), 'membros.0': { $exists: false } };
+            const excluida = await Familia.findOneAndDelete({ ...vazia, 'avaliacoesRisco.0': { $exists: false } });
+            if (excluida) return res.json({ acao: 'excluida', message: 'Família vazia excluída. As fichas individuais foram mantidas.' });
+            const arquivada = await Familia.findOneAndUpdate({ ...vazia, 'avaliacoesRisco.0': { $exists: true } }, { $set: { arquivado: true } }, { new: true });
+            if (arquivada) return res.json({ acao: 'arquivada', message: 'Família retirada da lista ativa. O histórico está nas famílias arquivadas.' });
+            if (await Familia.exists(consultaFamilia(req, req.params.id))) return res.status(409).json({ message: 'Remova os membros antes de excluir a família. As fichas individuais devem ser preservadas.' });
+            return res.status(404).json({ message: 'Família não encontrada.' });
+        } catch (_) { res.status(503).json({ message: 'Não foi possível excluir a família. Tente novamente.' }); }
+    });
+    router.get('/familias/:id/historico', async (req, res) => {
+        try {
+            if (!idValido(req.params.id)) return res.status(400).json({ message: 'Família inválida.' });
+            const familia = await Familia.findOne({ _id: req.params.id, usuarioId: req.usuario.id }).lean();
+            if (!familia) return res.status(404).json({ message: 'Família não encontrada.' });
+            res.json({ nome: familia.nome, arquivado: familia.arquivado === true, avaliacoes: familia.avaliacoesRisco || [] });
+        } catch (_) { res.status(503).json({ message: 'Não foi possível consultar o histórico.' }); }
+    });
+    router.put('/familias/:id/restaurar', async (req, res) => {
+        try {
+            if (!idValido(req.params.id)) return res.status(400).json({ message: 'Família inválida.' });
+            const familia = await Familia.findOneAndUpdate({ _id: req.params.id, usuarioId: req.usuario.id, arquivado: true, 'membros.0': { $exists: false } }, { $set: { arquivado: false } }, { new: true });
+            if (!familia) return res.status(404).json({ message: 'Família arquivada não encontrada.' });
+            res.json(familia);
+        } catch (_) { res.status(503).json({ message: 'Não foi possível restaurar a família.' }); }
+    });
+
     router.post('/familias', async (req, res) => {
         try {
             if (!idValido(req.body.responsavelId)) return res.status(400).json({ message: 'Escolha um responsável já cadastrado.' });

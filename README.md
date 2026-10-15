@@ -150,3 +150,11 @@ A ficha individual, seu CPF, seus dados atuais e seus históricos continuam cada
 A retirada do membro e a limpeza da função de responsável ocorrem juntas numa atualização atômica no MongoDB, evitando responsável fora da lista em operações simultâneas. Não há exclusão de fichas ou migração de avaliações para outra família.
 
 Para permitir várias famílias vazias mantendo a proibição de uma pessoa participar de duas famílias, `lib/indiceVinculos.js` prepara o índice único parcial `familia_membros_unicos_v2`. Ele constrói a nova proteção antes de remover o índice legado `usuarioId_1_membros.cadastroId_1`, apenas quando o nome e a definição legada esperada são confirmados. A preparação é idempotente, ocorre na conexão do servidor e é conferida antes de remover um vínculo; se a preparação falhar, a remoção não acontece. Nenhum documento é apagado. A conta MongoDB do servidor deve permitir criar/remover índices, como na configuração normal da aplicação. Não são necessárias novas variáveis.
+
+## Exclusão de famílias vazias (v10)
+
+Famílias sem membros exibem **Excluir família** tanto na lista quanto na janela da família. O sistema pede confirmação e nunca exclui fichas individuais. Se a família vazia não possui avaliações, seu registro é excluído. Se possui avaliações, sai da lista ativa e passa para **Arquivadas com histórico**, mantendo as avaliações para consulta em modal, sem formulário de alteração. É possível restaurar uma família arquivada.
+
+Famílias com membros precisam ter os vínculos removidos antes da exclusão. A API confirma novamente que não há membros no momento da operação: exclusão e arquivamento usam filtros atômicos, incluindo a presença/ausência de avaliações, para preservar alterações concorrentes. Famílias arquivadas não aceitam novos vínculos nem avaliações até serem restauradas. Todas as operações exigem o mesmo usuário proprietário.
+
+Na tela Famílias, o filtro **Mostrar famílias** inicia em **Ativas**, portanto os registros arquivados não atrapalham o trabalho diário. Os cadastros e seus dados não mudam. Documentos antigos sem o campo `arquivado` são considerados ativos. Não exige novas variáveis nem migração manual.

@@ -358,3 +358,33 @@ test('trocar e remover responsável simultaneamente nunca deixa responsável for
     assert.ok(!salvo.responsavelId || salvo.membros.some(m => String(m.cadastroId) === String(salvo.responsavelId)));
     assert.equal(salvo.membros.some(m => String(m.cadastroId) === String(b._id)), false);
 });
+
+test('excluir família vazia sem avaliações apaga apenas a família e protege proprietário', async () => {
+    const p = await pessoa(); const f = await familia(p);
+    assert.equal((await api(`/familias/${f._id}`, 'DELETE')).status, 409);
+    await api(`/familias/${f._id}/membros/${p._id}`, 'DELETE');
+    assert.equal((await api(`/familias/${f._id}`, 'DELETE', undefined, agenteB)).status, 404);
+    const r = await api(`/familias/${f._id}`, 'DELETE');
+    assert.equal(r.status, 200); assert.equal(r.dados.acao, 'excluida');
+    assert.equal(await Familia.findById(f._id), null); assert.ok(await Cadastro.findById(p._id));
+    assert.equal((await api('/familias')).dados.length, 0);
+    assert.equal((await api('/familias?arquivadas=1')).dados.length, 0);
+});
+test('família vazia com avaliações sai das ativas e histórico protegido continua consultável e restaurável', async () => {
+    const p = await pessoa(); const f = await familia(p);
+    await api(`/familias/${f._id}/coelho-savassi`, 'POST', entradaDomicilio());
+    await api(`/familias/${f._id}/membros/${p._id}`, 'DELETE');
+    const r = await api(`/familias/${f._id}`, 'DELETE');
+    assert.equal(r.status, 200); assert.equal(r.dados.acao, 'arquivada');
+    assert.equal((await api('/familias')).dados.length, 0);
+    const arquivadas = await api('/familias?arquivadas=1'); assert.equal(arquivadas.dados.length, 1);
+    assert.equal((await api('/familias?arquivadas=1', 'GET', undefined, agenteB)).dados.length, 0);
+    assert.equal((await api(`/familias/${f._id}/historico`, 'GET', undefined, agenteB)).status, 404);
+    assert.equal((await api(`/familias/${f._id}/historico`)).dados.avaliacoes[0].coelhoSavassi.score, 5);
+    assert.equal((await api(`/familias/${f._id}/coelho-savassi`, 'POST', entradaDomicilio())).status, 404);
+    assert.equal((await api(`/familias/${f._id}/membros`, 'POST', { cadastroId: p._id, parentesco: 'Outro' })).status, 404);
+    assert.equal((await api(`/familias/${f._id}/restaurar`, 'PUT', undefined, agenteB)).status, 404);
+    assert.equal((await api(`/familias/${f._id}/restaurar`, 'PUT')).status, 200);
+    assert.equal((await api('/familias')).dados.length, 1);
+    assert.equal((await Familia.findById(f._id)).avaliacoesRisco.length, 1);
+});

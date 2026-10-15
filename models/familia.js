@@ -4,6 +4,7 @@ const { chaves, opcoes } = require('../lib/indiceVinculos');
 
 const familiaSchema = new mongoose.Schema({
     usuarioId: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true },
+    arquivado: { type: Boolean, default: false },
     nome: { type: String, trim: true, required: true, maxlength: 150 },
     numeroFicha: { type: String, trim: true, default: '', maxlength: 50 },
     microarea: { type: String, trim: true, default: '', maxlength: 50 },
