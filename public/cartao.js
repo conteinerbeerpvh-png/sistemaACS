@@ -54,7 +54,7 @@ function visualizarCartao(dados) {
         versos += `<section class="cartao-face"><h3>${texto(dados.nomeFamilia)}</h3><p>Familiares - ${i + 1}/${quantidade}</p><table class="cartao-tabela"><thead><tr><th>CPF</th><th>NOME</th></tr></thead><tbody>${Array.from({ length: 8 }, (_, j) => `<tr><td>${texto(membros[j]?.cpf || '')}</td><td>${texto(membros[j]?.nome || '')}</td></tr>`).join('')}</tbody></table></section>`;
     }
     $('cartaoVisual').innerHTML = frente + versos;
-    if (!$('cartaoDialog').open) $('cartaoDialog').showModal();
+    window.abrirModal('cartaoDialog');
 }
 window.abrirCartaoFamilia = async id => {
     const entrada = await prepararCartaoFamilia(id);
@@ -87,9 +87,9 @@ window.acaoCartaoFamilia = async (acao, id) => {
     baixarCartao(entrada);
     marcarCartaoPronto(id, 'PDF baixado. Anexe esse arquivo à conversa no WhatsApp para concluir o envio.', true);
 };
-$('fecharCartao').addEventListener('click', () => $('cartaoDialog').close());
+$('fecharCartao').addEventListener('click', () => window.fecharModal('cartaoDialog'));
 window.limparCartoes = () => {
     for (const entrada of cartoesFamilia.values()) if (entrada.url) URL.revokeObjectURL(entrada.url);
     cartoesFamilia.clear(); $('cartaoVisual').replaceChildren();
-    if ($('cartaoDialog').open) $('cartaoDialog').close();
+    if ($('cartaoDialog').open) window.fecharModal('cartaoDialog');
 };

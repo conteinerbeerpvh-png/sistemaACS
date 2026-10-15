@@ -79,3 +79,12 @@ ATUALIZAÇÃO V6 - CORREÇÕES DE CADASTRO E BUSCA
 - Identificação LGBTQIAPN+ opcional e autodeclarada, com identificações por extenso.
 - Pesquisa aceita acentos ou sem acento e encontra gestante/gravida, tabagista/fumante e outras doenças.
 - Não exige novas variáveis de ambiente. Mantém os requisitos JWT_SECRET e MONGODB_URI existentes.
+
+ATUALIZAÇÃO V7 - CADASTRO E GERENCIAMENTO EM MODAIS
+- Substitua todos os arquivos, incluindo o novo public/modais.js e o CSS atualizado.
+- Cadastro, edição, família, adição de familiar e parentesco abrem em janelas.
+- Risco e cartão continuam em modais, com o mesmo padrão de navegação.
+- Fechar/Voltar ficam no cabeçalho; rolagem ocorre dentro da janela.
+- A lista mantém sua posição ao fechar. Escape fecha a janela atual.
+- Cancelar o cadastro descarta o formulário sem gravar.
+- Não exige alterações no banco ou em variáveis de ambiente.

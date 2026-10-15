@@ -43,7 +43,7 @@ async function carregarOrganizacao() {
         pessoasFamilia = pessoas;
         atualizarResponsaveis();
         exibirFamilias();
-        if (familiaAberta) abrirFamilia(familiaAberta);
+        if (familiaAberta) abrirFamilia(familiaAberta, false);
         exibirCadastros();
         return true;
     } catch (error) { if (sessao === token) $('familiaMensagem').textContent = error.message; return false; }
@@ -71,9 +71,9 @@ window.prepararResponsavelNoFormulario = prepararResponsavelNoFormulario;
 $('responsavelFamilia').addEventListener('change', atualizarBotaoCadastro);
 function focarMembrosFamilia(id) {
     window.mostrarTela('familias');
+    window.fecharModal('vinculoDialog');
     abrirFamilia(id);
-    $('familiaDetalhe').scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-    $('membroBusca')?.focus({ preventScroll: true });
+
 }
 window.focarMembrosFamilia = focarMembrosFamilia;
 window.abrirFamiliaDoResponsavel = async function (cadastro) {
@@ -101,14 +101,17 @@ window.abrirFamiliaDoResponsavel = async function (cadastro) {
 window.limparOrganizacao = function () {
     familias = []; pessoasFamilia = []; familiaAberta = null; familiaEditando = null;
     novoFamiliarContexto = null; familiaDoNovoMembro = null; riscoContexto = null;
+    window.fecharTodosModais?.();
     window.limparCartoes?.();
     window.limparCoelho?.();
     paginaPacientes = 1; paginaFamilias = 1;
+    parentescoContexto = null; $('parentescoForm').reset(); $('parentescoMensagem').textContent = '';
+    $('familiaDialogTitulo').textContent = 'Família e membros'; $('vinculoCorpo').replaceChildren();
     $('familiasList').replaceChildren(); $('familiaDetalhe').replaceChildren(); $('familiaDetalhe').hidden = true;
     $('familiaForm').reset(); $('riscoForm').reset(); $('riscoHistorico').replaceChildren(); $('riscoAtual').replaceChildren();
-    if ($('riscoDialog').open) $('riscoDialog').close();
+    if ($('riscoDialog').open) window.fecharModal('riscoDialog');
     $('familiaResponsavel').disabled = false; $('salvarFamilia').textContent = 'Criar família'; $('cancelarFamilia').hidden = true;
-    $('familiaCadastroManual').open = false;
+    window.fecharModal('familiaCadastroManual');
     $('familiaMensagem').textContent = ''; $('familiaBusca').value = ''; $('listaEstado').value = 'ativos';
     for (const id of ['filtroRiscoTipo', 'filtroRiscoNivel', 'filtroRiscoPrazo']) $(id).value = '';
 };
@@ -128,24 +131,28 @@ function exibirFamilias() {
         return `<article class="familia-item"><h3>${texto(f.nome)}</h3><p>Responsável: ${texto(resp?.nomeCompleto || 'Responsável pendente')} · ${f.membros.length} membro(s)</p><p>Ficha: ${texto(f.numeroFicha || 'não informada')} · Microárea: ${texto(f.microarea || 'não informada')}</p>${resumoRisco(f.avaliacoesRisco)}<div class="cadastro-actions"><button type="button" class="btn-edit" data-familia="${texto(f._id)}">Abrir família</button><button type="button" class="btn-secondary" data-cartao-familia="${texto(f._id)}">Cartão</button><button type="button" class="btn-print" data-risco-familia="${texto(f._id)}">Risco familiar</button><button type="button" class="btn-clear" data-editar-familia="${texto(f._id)}">Editar família</button></div></article>`;
     }).join('') : '<p class="help-text">Nenhuma família encontrada. Cadastre primeiro o responsável na ficha individual.</p>';
 }
-function abrirFamilia(id) {
+function abrirFamilia(id, exibir = true) {
     const f = familias.find(f => f._id === id);
-    if (!f) { familiaAberta = null; $('familiaDetalhe').hidden = true; return; }
+    if (!f) { familiaAberta = null; $('familiaDetalhe').hidden = true; window.fecharModal('familiaDialog'); return; }
     familiaAberta = id;
     const disponiveis = pessoasFamilia.filter(p => !familiaDaPessoa(p._id));
     $('familiaDetalhe').hidden = false;
-    $('familiaDetalhe').innerHTML = `<h3>${texto(f.nome)}</h3><p class="help-text">${texto(f.endereco || 'Endereço não informado')}</p>
+    $('familiaDialogTitulo').textContent = f.nome;
+    $('familiaDetalhe').innerHTML = `<p class="help-text">${texto(f.endereco || 'Endereço não informado')}</p>
         <section class="notice"><strong>Cartão da família</strong><p id="cartaoStatus">Preparando cartão frente e verso...</p><div class="cadastro-actions"><button id="verCartao" type="button" class="btn-edit" disabled>Ver cartão</button><button id="baixarCartao" type="button" class="btn-print" disabled>Baixar PDF</button><button id="whatsappCartao" type="button" class="btn-whatsapp" disabled>Enviar por WhatsApp</button><button id="atualizarCartao" type="button" class="btn-clear">Atualizar cartão</button></div><small>Se o celular abrir o menu de compartilhamento, escolha WhatsApp. Quando não houver suporte a anexos, baixe o PDF e anexe na conversa.</small></section>
         ${f.responsavelId ? '<p class="help-text">Telefone, endereço, bairro e número da casa dos membros seguem os dados do responsável.</p>' : '<p class="notice">Responsável pendente. Escolha um membro e clique em “Tornar responsável”. Cada ficha mantém seus dados atuais. Para desvincular o último cadastro, primeiro adicione o membro correto.</p>'}
-        <div class="form-group"><label for="membroBusca">Pesquisar pessoa já cadastrada</label><input id="membroBusca" placeholder="Nome, CPF ou telefone" autocomplete="off"></div>
+        <button id="abrirVinculo" type="button" class="btn-primary">Adicionar familiar</button>
+        <section id="vinculoConteudo"><div class="form-group"><label for="membroBusca">Pesquisar pessoa já cadastrada</label><input id="membroBusca" placeholder="Nome, CPF ou telefone" autocomplete="off"></div>
         <div class="form-row"><div class="form-group"><label for="membroExistente">Adicionar cadastro existente</label><select id="membroExistente"><option value="">Selecione...</option>${disponiveis.map(p => `<option value="${texto(p._id)}">${texto(p.nomeCompleto)} · ${texto(p.cpf)}</option>`).join('')}</select></div><div class="form-group"><label for="membroParentesco">Vínculo/parentesco com o responsável</label><input id="membroParentesco" maxlength="100" placeholder="Ex.: filho, cônjuge ou outro vínculo"></div></div>
-        <div class="cadastro-actions"><button type="button" id="vincularMembro" class="btn-edit">Vincular cadastro existente</button><button type="button" id="novoMembro" class="btn-secondary">Cadastrar novo familiar</button></div>
+        <div class="cadastro-actions"><button type="button" id="vincularMembro" class="btn-edit">Vincular cadastro existente</button><button type="button" id="novoMembro" class="btn-secondary">Cadastrar novo familiar</button></div></section>
         <div>${f.membros.map(m => {
             const p = m.cadastroId;
             if (!p?._id) return '<p class="help-text">Membro indisponível. Verifique o cadastro.</p>';
             const responsavel = String(f.responsavelId) === p._id;
             return `<article class="membro-item"><strong>${texto(p.nomeCompleto)}</strong> · ${responsavel ? 'Responsável' : texto(m.parentesco || 'Vínculo não informado')}${p.arquivado ? ' · Cadastro arquivado' : ''}<p>CPF: ${texto(p.cpf)}</p><div class="cadastro-actions"><button class="btn-print" data-risco-pessoa="${texto(p._id)}" type="button">Risco individual</button>${!responsavel ? `<button class="btn-clear" data-vinculo="${texto(p._id)}" type="button">Editar vínculo</button><button class="btn-edit" data-responsavel="${texto(p._id)}" type="button">Tornar responsável</button><button class="btn-delete" data-desvincular="${texto(p._id)}" type="button">Desvincular</button>` : `<button class="btn-delete" data-remover-responsavel="${texto(p._id)}" type="button">Remover responsável</button>`}</div></article>`;
         }).join('')}</div>`;
+    $('vinculoCorpo').replaceChildren($('familiaDetalhe').querySelector('#vinculoConteudo'));
+    if (exibir) window.abrirModal('familiaDialog');
     window.prepararCartaoFamilia?.(f._id);
     $('membroBusca').addEventListener('input', () => {
         const normalizar = valor => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -164,10 +171,14 @@ $('familiaResponsavel').addEventListener('change', () => {
     if (p) $('familiaEndereco').value = `${p.endereco}, Nº ${p.numero} — ${p.bairro}`;
 });
 function cancelarFamilia() {
-    familiaEditando = null; $('familiaCadastroManual').open = false; $('familiaForm').reset(); $('familiaResponsavel').disabled = false;
-    $('salvarFamilia').textContent = 'Criar família'; $('cancelarFamilia').hidden = true; atualizarResponsaveis();
+    familiaEditando = null; window.fecharModal('familiaCadastroManual'); $('familiaForm').reset(); $('familiaResponsavel').disabled = false;
+    $('salvarFamilia').textContent = 'Criar família'; $('cancelarFamilia').hidden = true; $('familiaFormTitulo').textContent = 'Criar família'; $('familiaFormMensagem').textContent = ''; atualizarResponsaveis();
 }
 $('cancelarFamilia').addEventListener('click', cancelarFamilia);
+$('fecharFamiliaForm').addEventListener('click', cancelarFamilia);
+$('novaFamilia').addEventListener('click', () => { cancelarFamilia(); window.abrirModal('familiaCadastroManual'); });
+$('fecharFamilia').addEventListener('click', () => window.fecharModal('familiaDialog'));
+$('fecharVinculo').addEventListener('click', () => window.fecharModal('vinculoDialog'));
 $('familiaForm').addEventListener('submit', async event => {
     event.preventDefault(); $('salvarFamilia').disabled = true;
     try {
@@ -175,8 +186,8 @@ $('familiaForm').addEventListener('submit', async event => {
         const resposta = await requisicao(familiaEditando ? `/api/familias/${familiaEditando._id}` : '/api/familias', { method: familiaEditando ? 'PUT' : 'POST', body: JSON.stringify(dados) });
         if (!resposta.ok) throw new Error(await mensagem(resposta));
         const salvo = await resposta.json(); familiaAberta = salvo._id; cancelarFamilia();
-        $('familiaMensagem').textContent = 'Família salva com sucesso.'; await carregarOrganizacao();
-    } catch (error) { $('familiaMensagem').textContent = error.message; }
+        $('familiaMensagem').textContent = 'Família salva com sucesso.'; await carregarOrganizacao(); abrirFamilia(salvo._id);
+    } catch (error) { $('familiaFormMensagem').textContent = error.message; }
     finally { $('salvarFamilia').disabled = false; }
 });
 $('familiasList').addEventListener('click', event => {
@@ -185,12 +196,12 @@ $('familiasList').addEventListener('click', event => {
     if (b.dataset.riscoFamilia) window.abrirCoelhoSavassi?.(b.dataset.riscoFamilia);
     if (b.dataset.cartaoFamilia) { abrirFamilia(b.dataset.cartaoFamilia); window.abrirCartaoFamilia?.(b.dataset.cartaoFamilia); }
     if (b.dataset.editarFamilia) {
-        $('familiaCadastroManual').open = true;
+        window.abrirModal('familiaCadastroManual'); $('familiaFormTitulo').textContent = 'Editar família'; $('familiaFormMensagem').textContent = '';
         familiaEditando = familias.find(f => f._id === b.dataset.editarFamilia);
         atualizarResponsaveis(); $('familiaNome').value = familiaEditando.nome; $('familiaFicha').value = familiaEditando.numeroFicha || '';
         $('familiaMicroarea').value = familiaEditando.microarea || ''; $('familiaEndereco').value = familiaEditando.endereco || '';
         $('familiaResponsavel').value = String(familiaEditando.responsavelId); $('familiaResponsavel').disabled = true;
-        $('salvarFamilia').textContent = 'Salvar alterações da família'; $('cancelarFamilia').hidden = false; $('familiaNome').focus();
+        $('salvarFamilia').textContent = 'Salvar alterações da família'; $('cancelarFamilia').hidden = false;
     }
 });
 async function acaoFamilia(rota, metodo, dados) {
@@ -198,18 +209,20 @@ async function acaoFamilia(rota, metodo, dados) {
     if (!r.ok) throw new Error(await mensagem(r));
     await carregarOrganizacao();
 }
-$('familiaDetalhe').addEventListener('click', async event => {
+async function acaoDetalheFamilia(event) {
     const b = event.target.closest('button'); if (!b) return;
     b.disabled = true;
     try {
+        if (b.id === 'abrirVinculo') window.abrirModal('vinculoDialog');
         if (['verCartao', 'baixarCartao', 'whatsappCartao', 'atualizarCartao'].includes(b.id)) { await window.acaoCartaoFamilia?.(b.id, familiaAberta); return; }
-        if (b.id === 'vincularMembro') { if (!$('membroExistente').value) throw new Error('Selecione um cadastro existente.'); await acaoFamilia('/membros', 'POST', { cadastroId: $('membroExistente').value, parentesco: $('membroParentesco').value }); }
+        if (b.id === 'vincularMembro') { if (!$('membroExistente').value) throw new Error('Selecione um cadastro existente.'); await acaoFamilia('/membros', 'POST', { cadastroId: $('membroExistente').value, parentesco: $('membroParentesco').value }); window.fecharModal('vinculoDialog'); }
         if (b.dataset.responsavel && confirm('Definir esta pessoa como responsável pela família? Revise depois o parentesco dos outros membros em relação ao novo responsável.')) await acaoFamilia('/responsavel', 'PUT', { cadastroId: b.dataset.responsavel });
         if (b.dataset.vinculo) {
             const familia = familias.find(f => f._id === familiaAberta);
             const atual = familia.membros.find(m => m.cadastroId?._id === b.dataset.vinculo)?.parentesco || '';
-            const parentesco = prompt('Vínculo/parentesco com o responsável atual:', atual);
-            if (parentesco !== null) await acaoFamilia('/membros/' + b.dataset.vinculo, 'PUT', { parentesco });
+            parentescoContexto = { familiaId: familiaAberta, cadastroId: b.dataset.vinculo };
+            $('parentescoValor').value = atual; $('parentescoMensagem').textContent = '';
+            window.abrirModal('parentescoDialog');
         }
         if (b.dataset.removerResponsavel && confirm('Remover esta pessoa da função de responsável? A família e o histórico serão mantidos. Depois você poderá desvinculá-la e definir outro responsável.')) await acaoFamilia('/responsavel', 'DELETE', { cadastroId: b.dataset.removerResponsavel });
         if (b.dataset.desvincular && confirm('Desvincular da família? A ficha individual será mantida.')) await acaoFamilia('/membros/' + b.dataset.desvincular, 'DELETE');
@@ -222,11 +235,13 @@ $('familiaDetalhe').addEventListener('click', async event => {
             const resp = pessoasFamilia.find(p => p._id === String(familia.responsavelId));
             if (resp) { $('telefone').value = resp.telefone || ''; $('endereco').value = resp.endereco; $('numero').value = resp.numero; $('bairro').value = resp.bairro; }
             window.mostrarTela('cadastro');
-            $('formTitle').textContent = `Novo familiar — ${familia.nome}`; $('cancelBtn').hidden = false; $('nomeCompleto').focus(); window.scrollTo({ top: 0, behavior: 'smooth' });
+            $('formTitle').textContent = `Novo familiar — ${familia.nome}`; $('cancelBtn').hidden = false;
         }
     } catch (error) { alert(error.message); }
     finally { b.disabled = false; }
-});
+}
+$('familiaDetalhe').addEventListener('click', acaoDetalheFamilia);
+$('vinculoDialog').addEventListener('click', acaoDetalheFamilia);
 window.vincularNovoFamiliar = async function (cadastro) {
     const contexto = novoFamiliarContexto; novoFamiliarContexto = null;
     familiaDoNovoMembro = contexto?.familiaId || null;
@@ -249,11 +264,11 @@ async function abrirRisco(rota, id) {
         $('riscoTipo').innerHTML = '<option value="">Selecione...</option>' + Object.entries(risco.tipos).filter(([chave]) => rota === 'familias' ? chave === 'familiar' : chave !== 'familiar').map(([chave, nome]) => `<option value="${chave}">${texto(nome)}</option>`).join('');
         if (rota === 'familias') $('riscoTipo').value = 'familiar';
         $('riscoData').value = risco.hoje(); $('riscoData').max = risco.hoje(); exibirHistorico(dados.avaliacoes);
-        if (!$('riscoDialog').open) $('riscoDialog').showModal();
+        window.abrirModal('riscoDialog');
     } catch (error) { alert(error.message); }
 }
 window.abrirRisco = abrirRisco;
-$('fecharRisco').addEventListener('click', () => $('riscoDialog').close());
+$('fecharRisco').addEventListener('click', () => window.fecharModal('riscoDialog'));
 $('riscoForm').addEventListener('submit', async event => {
     event.preventDefault(); if (!riscoContexto) return; $('salvarRisco').disabled = true;
     try {
@@ -268,12 +283,12 @@ $('riscoForm').addEventListener('submit', async event => {
 if (token && usuario) carregarOrganizacao();
 
 function mostrarTela(tela) {
+    if (tela === 'cadastro') { window.abrirModal('cadastroDialog'); return; }
     for (const painel of document.querySelectorAll('[data-panel]')) painel.hidden = painel.dataset.panel !== tela;
     for (const botao of document.querySelectorAll('[data-tela]')) {
         if (botao.dataset.tela === tela) botao.setAttribute('aria-current', 'page');
         else botao.removeAttribute('aria-current');
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 window.mostrarTela = mostrarTela;
 for (const botao of document.querySelectorAll('[data-tela]')) botao.addEventListener('click', () => {
@@ -307,4 +322,17 @@ $('removerResponsavelCadastro').addEventListener('click', async () => {
         await carregarOrganizacao(); prepararResponsavelNoFormulario(cadastros.find(c => c._id === b.dataset.pessoa));
         $('responsavelFamiliaAjuda').textContent = 'Função removida. A família está com responsável pendente. Você pode definir outro membro e desvincular o cadastro errado na área da família.';
     } catch (e) { alert(e.message); } finally { b.disabled = false; }
+});
+
+let parentescoContexto = null;
+$('fecharParentesco').addEventListener('click', () => window.fecharModal('parentescoDialog'));
+$('parentescoForm').addEventListener('submit', async event => {
+    event.preventDefault(); if (!parentescoContexto) return;
+    const contexto = parentescoContexto; $('salvarParentesco').disabled = true;
+    try {
+        const r = await requisicao(`/api/familias/${contexto.familiaId}/membros/${contexto.cadastroId}`, { method: 'PUT', body: JSON.stringify({ parentesco: $('parentescoValor').value }) });
+        if (!r.ok) throw new Error(await mensagem(r));
+        await carregarOrganizacao(); window.fecharModal('parentescoDialog'); parentescoContexto = null;
+    } catch (e) { $('parentescoMensagem').textContent = e.message; }
+    finally { $('salvarParentesco').disabled = false; }
 });

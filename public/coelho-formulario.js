@@ -23,13 +23,13 @@ async function abrirCoelhoSavassi(id, rota = 'familias') {
         $('coelhoTitulo').textContent = 'Risco do domicílio - Coelho-Savassi';
         $('coelhoSentinelas').innerHTML = escalaCoelho.sentinelas.map(s => `<div class="coelho-criterio"><label for="sentinela-${s.id}"><strong>${texto(s.nome)} · ${s.peso} ponto(s) por pessoa</strong><small>${texto(s.descricao)}</small></label><input id="sentinela-${s.id}" type="number" min="0" max="500" step="1" required aria-label="Quantidade: ${texto(s.nome)}"></div>`).join('');
         $('coelhoHistorico').innerHTML = dados.avaliacoes.length ? dados.avaliacoes.slice().reverse().map(a => `<article class="registro-risco"><h4>${texto(formatarData(a.dataAvaliacao))} - ${texto(a.profissional)}</h4>${a.localRegistro ? `<p>${texto(a.localRegistro)}</p>` : ''}${a.coelhoSavassi ? pontosCoelho(a.coelhoSavassi) : `<p>Avaliação manual anterior: ${texto(risco.niveis[a.nivel] || a.nivel)}. ${texto(a.justificativa)}</p>`}<p>Registrado por: ${texto(a.nomeRegistrador)}</p></article>`).join('') : '<p>Nenhuma avaliação familiar registrada.</p>';
-        atualizarCalculoCoelho(); if (!$('coelhoDialog').open) $('coelhoDialog').showModal();
+        atualizarCalculoCoelho(); window.abrirModal('coelhoDialog');
     } catch (error) { alert(error.message); }
 }
 window.abrirCoelhoSavassi = abrirCoelhoSavassi;
 $('coelhoForm').addEventListener('input', atualizarCalculoCoelho);
 $('coelhoForm').addEventListener('change', atualizarCalculoCoelho);
-$('fecharCoelho').addEventListener('click', () => $('coelhoDialog').close());
+$('fecharCoelho').addEventListener('click', () => window.fecharModal('coelhoDialog'));
 $('coelhoForm').addEventListener('submit', async event => {
     event.preventDefault(); if (!contextoCoelho) return; $('salvarCoelho').disabled = true;
     const sessao = token;
@@ -46,4 +46,4 @@ $('coelhoForm').addEventListener('submit', async event => {
     } catch (error) { if (sessao === token) $('coelhoMensagem').textContent = error.message; }
     finally { $('salvarCoelho').disabled = false; }
 });
-window.limparCoelho = () => { contextoCoelho = null; $('coelhoForm').reset(); $('coelhoHistorico').replaceChildren(); $('coelhoResultado').replaceChildren(); if ($('coelhoDialog').open) $('coelhoDialog').close(); };
+window.limparCoelho = () => { contextoCoelho = null; $('coelhoForm').reset(); $('coelhoHistorico').replaceChildren(); $('coelhoResultado').replaceChildren(); if ($('coelhoDialog').open) window.fecharModal('coelhoDialog'); };

@@ -55,7 +55,7 @@ before(async () => {
     dom.window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
     dom.window.localStorage.setItem('acs_token', jwt.sign(agente, secret));
     dom.window.localStorage.setItem('acs_usuario', JSON.stringify({ nome: agente.nome, usuario: agente.usuario }));
-    for (const arquivo of ['pesquisa.js', 'risco.js', 'script.js', 'organizacao.js', 'cartao.js', 'coelho-savassi.js', 'coelho-formulario.js']) vm.runInContext(fs.readFileSync(path.join(pasta, arquivo), 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
+    for (const arquivo of ['modais.js', 'pesquisa.js', 'risco.js', 'script.js', 'organizacao.js', 'cartao.js', 'coelho-savassi.js', 'coelho-formulario.js']) vm.runInContext(fs.readFileSync(path.join(pasta, arquivo), 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
     await esperar(() => dom.window.document.querySelectorAll('#familiaResponsavel option').length === 3, 'carregar responsáveis');
 });
 after(async () => {
@@ -69,7 +69,8 @@ const enviar = id => elemento(id).dispatchEvent(new dom.window.Event('submit', {
 
 test('interface cria família e vincula pessoa existente', async () => {
     dom.window.document.querySelector('[data-tela="familias"]').click();
-    elemento('familiaCadastroManual').open = true;
+    elemento('novaFamilia').click();
+    assert.equal(elemento('familiaCadastroManual').open, true);
     elemento('familiaNome').value = 'Família de Teste';
     elemento('familiaFicha').value = '123';
     elemento('familiaResponsavel').value = responsavel.id;
@@ -78,6 +79,12 @@ test('interface cria família e vincula pessoa existente', async () => {
     enviar('familiaForm');
     await esperar(() => elemento('membroExistente'), 'abrir família criada');
     await esperar(() => !elemento('salvarFamilia').disabled, 'concluir gravação da família');
+    assert.equal(elemento('familiaDialog').open, true);
+    assert.equal(elemento('familiaCadastroManual').open, false);
+    elemento('abrirVinculo').click();
+    assert.equal(elemento('vinculoDialog').open, true);
+    assert.equal(elemento('familiaDetalhe').querySelector('#membroBusca'), null);
+    assert.ok(elemento('vinculoCorpo').querySelector('#membroBusca'));
     elemento('membroExistente').value = existente.id;
     elemento('membroParentesco').value = 'Cônjuge';
     elemento('vincularMembro').click();
@@ -87,8 +94,10 @@ test('interface cria família e vincula pessoa existente', async () => {
 });
 
 test('novo familiar herda endereço e é vinculado depois de salvar, sem duplicar responsável', async () => {
+    elemento('abrirVinculo').click();
     elemento('membroParentesco').value = 'Filho';
     elemento('novoMembro').click();
+    assert.equal(elemento('cadastroDialog').open, true);
     assert.match(elemento('formTitle').textContent, /Novo familiar/);
     assert.equal(elemento('endereco').value, 'Rua Fictícia');
     assert.equal(elemento('numero').value, '10');
@@ -97,6 +106,9 @@ test('novo familiar herda endereço e é vinculado depois de salvar, sem duplica
     enviar('cadastroForm');
     await esperar(() => elemento('familiaDetalhe').querySelectorAll('.membro-item').length === 3, 'salvar novo familiar e vínculo');
     await esperar(() => !elemento('submitBtn').disabled, 'concluir gravação da ficha');
+    assert.equal(elemento('cadastroDialog').open, false);
+    assert.equal(elemento('vinculoDialog').open, false);
+    assert.equal(elemento('familiaDialog').open, true);
     assert.equal(await Cadastro.countDocuments({}), 3);
     const familiar = await Cadastro.findOne({ nomeCompleto: 'Novo Familiar Fictício' });
     const familia = await Familia.findOne({});
@@ -136,8 +148,8 @@ test('marcar responsável no novo paciente cria família e abre membros; editar 
     assert.equal(await Familia.countDocuments({}), 2);
     const familia = await Familia.findOne({ responsavelId: pessoa._id });
     assert.equal(familia.membros.length, 1);
-    assert.match(elemento('familiaDetalhe').textContent, /Família de Responsável pelo Cadastro/);
-    assert.equal(dom.window.document.activeElement.id, 'membroBusca');
+    assert.match(elemento('familiaDialogTitulo').textContent, /Família de Responsável pelo Cadastro/);
+    assert.equal(dom.window.document.activeElement.id, 'familiaDialogTitulo');
     elemento('cadastrosList').querySelector(`[data-editar="${pessoa.id}"]`).click();
     assert.equal(elemento('responsavelFamilia').checked, true);
     enviar('cadastroForm');
@@ -303,9 +315,59 @@ test('edição permite remover responsável e área familiar permite escolher ou
     await esperar(() => elemento('familiaDetalhe').querySelector(`[data-remover-responsavel="${existente.id}"]`), 'recarregar família');
 });
 
+test('cadastro e edição abrem no topo do modal, fecham por botão ou Escape e preservam a lista', async () => {
+    dom.window.fecharTodosModais();
+    dom.window.document.querySelector('[data-tela="pacientes"]').click();
+    const lista = elemento('cadastrosList').innerHTML;
+    Object.defineProperty(dom.window, 'scrollY', { value: 640, configurable: true });
+    const scrollOriginal = dom.window.scrollTo; const rolagens = []; dom.window.scrollTo = opcoes => rolagens.push(opcoes);
+    const novo = dom.window.document.querySelector('[data-tela="cadastro"]'); novo.focus(); novo.click();
+    assert.equal(elemento('cadastroDialog').open, true);
+    assert.equal(elemento('cadastroDialog').scrollTop, 0);
+    assert.equal(dom.window.document.body.classList.contains('modal-aberto'), true);
+    assert.equal(dom.window.document.querySelector('[data-panel="pacientes"]').hidden, false);
+    assert.equal(elemento('cadastrosList').innerHTML, lista);
+    elemento('nomeCompleto').value = 'Rascunho';
+    elemento('cadastroDialog').dispatchEvent(new dom.window.Event('cancel', { cancelable: true }));
+    assert.equal(elemento('cadastroDialog').open, false);
+    assert.equal(elemento('nomeCompleto').value, '');
+    assert.equal(dom.window.document.body.classList.contains('modal-aberto'), false);
+    assert.equal(dom.window.document.activeElement, novo);
+    assert.equal(rolagens.at(-1).top, 640);
+    dom.window.scrollTo = scrollOriginal; Object.defineProperty(dom.window, 'scrollY', { value: 0, configurable: true });
+    dom.window.editarCadastro(responsavel.id);
+    assert.equal(elemento('cadastroDialog').open, true);
+    assert.match(elemento('formTitle').textContent, /Editar/);
+    elemento('fecharCadastro').click();
+    assert.equal(elemento('cadastroDialog').open, false);
+});
+test('adicionar familiar e editar parentesco usam modais e voltar preserva a família', async () => {
+    const f = await Familia.findOne({ 'membros.cadastroId': responsavel.id });
+    dom.window.abrirFamilia(f.id);
+    elemento('abrirVinculo').click();
+    assert.equal(elemento('vinculoDialog').open, true);
+    assert.equal(elemento('familiaDialog').open, true);
+    elemento('fecharVinculo').click();
+    assert.equal(elemento('vinculoDialog').open, false);
+    assert.equal(elemento('familiaDialog').open, true);
+    elemento('familiaDetalhe').querySelector(`[data-vinculo="${responsavel.id}"]`).click();
+    assert.equal(elemento('parentescoDialog').open, true);
+    elemento('parentescoValor').value = 'Outro vínculo'; enviar('parentescoForm');
+    await esperar(() => !elemento('salvarParentesco').disabled, 'salvar parentesco pelo modal');
+    assert.equal(elemento('parentescoDialog').open, false);
+    assert.equal((await Familia.findById(f.id)).membros.find(m => String(m.cadastroId) === responsavel.id).parentesco, 'Outro vínculo');
+    elemento('fecharFamilia').click();
+    assert.equal(elemento('familiaDialog').open, false);
+    await dom.window.carregarOrganizacao();
+    assert.equal(elemento('familiaDialog').open, false, 'atualizar listas não reabre janela fechada');
+    assert.equal(dom.window.document.body.classList.contains('modal-aberto'), false);
+});
+
 test('sair limpa fichas, famílias, contexto de edição e histórico sensível', async () => {
     elemento('logoutBtn').click();
     assert.equal(elemento('appScreen').hidden, true);
+    assert.equal(dom.window.document.querySelectorAll('dialog[open]').length, 0);
+    assert.equal(dom.window.document.body.classList.contains('modal-aberto'), false);
     assert.equal(elemento('cadastrosList').children.length, 0);
     assert.equal(elemento('familiasList').children.length, 0);
     assert.equal(elemento('riscoHistorico').children.length, 0);

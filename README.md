@@ -116,3 +116,13 @@ A identificação **LGBTQIAPN+** é opcional e autodeclarada, separada dos campo
 Todas as buscas de pacientes, famílias e membros normalizam maiúsculas/minúsculas e acentos. A busca de pacientes inclui outras doenças, endereço atual da família, documentos e condições verificadas: gestante/gestantes/grávida/gestação, acamado, domiciliado, criança e tabagista/fumante. Os termos “não gestante”, “não acamado” e “não domiciliado” exigem valor explicitamente falso. Vários termos devem corresponder ao mesmo cadastro; pontuação de CPF/telefone pode ser omitida. Os termos são texto literal, sem execução de expressões regulares, e não há correção arbitrária de erros de digitação.
 
 A filtragem é feita sobre os cadastros do usuário autenticado após aplicar o contato familiar canônico, mantendo a separação por usuário e entre ativos/arquivados. O volume de leitura continua proporcional à lista do agente, como no carregamento atual; para listas muito grandes, recomenda-se indexar campos normalizados e paginar a API em uma evolução própria.
+
+## Janelas de ação (v7)
+
+As listas de pacientes e famílias permanecem na tela principal. **Novo cadastro**, **Editar**, **Criar/Editar família**, **Abrir família**, **Adicionar familiar** e **Editar vínculo** abrem diálogos nativos, assim como risco e cartão. Formulários deixam de aparecer ao final da página.
+
+Os modais têm cabeçalho fixo com Fechar/Voltar, rolagem interna limitada à altura disponível e campos adaptados ao celular. O fundo fica inativo e com rolagem bloqueada; ao fechar a última janela, a posição original da lista é restaurada. Escape fecha a janela atual. Fechar ou cancelar cadastro descarta seu rascunho; cancelar a inclusão de um familiar não o vincula nem grava uma ficha. Fechar o modal de família não faz com que atualizações de listas o reabram.
+
+Na família, **Adicionar familiar** abre uma janela para pesquisar alguém já cadastrado ou cadastrar uma pessoa nova com os dados do responsável. O cadastro de novo familiar abre sobre essa janela; ao cancelar, é possível retornar à seleção. Ao salvar, a janela da família mostra os membros atualizados. Edição de parentesco agora usa formulário em modal em vez de prompt. Mensagens de erro da edição/criação de família aparecem dentro do formulário. Sair encerra todas as janelas e limpa seus contextos.
+
+O módulo `public/modais.js` centraliza abertura, fechamento, foco e bloqueio de rolagem. Não há mudanças no banco nem novas variáveis de ambiente para esta atualização. Os testes de interface usam JSDOM com diálogos simulados e verificam os fluxos e estados; não substituem validação visual em aparelhos reais.
