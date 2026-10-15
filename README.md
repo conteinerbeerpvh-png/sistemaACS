@@ -107,7 +107,7 @@ Fonte exata: `public/docs/coelho-savassi-tabela.pdf`, cópia do PDF fornecido pe
 
 ## Correções de cadastro e pesquisa (v6)
 
-Na edição do paciente, **Remover função de responsável** retira apenas essa função. Na família, **Remover responsável** faz o mesmo. Os membros, fichas e avaliações são mantidos; a família fica com **Responsável pendente** e o cartão sinaliza a pendência. Em seguida é possível tornar outro membro responsável e desvincular a pessoa errada. Para desvincular o último cadastro, primeiro adicione o membro correto; famílias sempre mantêm pelo menos uma ficha para preservar a restrição de vínculos únicos. Enquanto a função estiver pendente, os dados de contato de cada ficha podem ser editados sem propagação. Não se apagam os endereços já registrados.
+Na edição do paciente, **Remover função de responsável** retira apenas essa função. Na família, **Remover responsável** faz o mesmo. Os membros, fichas e avaliações são mantidos; a família fica com **Responsável pendente** e o cartão sinaliza a pendência. Em seguida é possível tornar outro membro responsável e desvincular a pessoa errada. Desde a v9, qualquer membro, inclusive o responsável ou o último cadastro, pode ser removido diretamente, sem indicar substituto. Enquanto a função estiver pendente, os dados de contato de cada ficha podem ser editados sem propagação. Não se apagam os endereços já registrados.
 
 **Tabagista** foi adicionado em doenças e condições pré-existentes, com persistência na criação e edição. Não gera pontos automaticamente na escala Coelho-Savassi.
 
@@ -140,3 +140,13 @@ O manifesto fica em `public/manifest.webmanifest`, com ícones PNG 192/512, más
 Cabeçalhos HTTP de manifesto, HTML e service worker pedem revalidação para facilitar atualizações. Depois de enviar a versão, recarregue o site uma vez para carregar o CSS e scripts atualizados. Referências: https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable e https://support.apple.com/en-lamr/guide/iphone/iphea86e5236/ios .
 
 Validação desta versão: testes automatizados de manifesto, tamanhos reais dos PNGs, isolamento do cache, fallback sem rede e interface. Também verificados os oito modais em Chromium com larguras 320, 360, 390, 430, 768, 844 (paisagem) e 1280, conferindo limites, sobreposição no cabeçalho e rolagem horizontal. O fallback offline e o retorno à aplicação com conexão foram exercitados em navegador real; essa emulação não substitui ensaio em iPhone ou Android físicos.
+
+## Remover cadastro da família sem substituição (v9)
+
+O botão **Remover da família** aparece em todos os membros, inclusive no responsável, e na edição de qualquer paciente vinculado. Ele remove o vínculo em uma única ação. Quando a pessoa era responsável, a função fica pendente automaticamente; não se exige que outro membro assuma. **Retirar função e manter como membro** continua disponível como ação separada.
+
+A ficha individual, seu CPF, seus dados atuais e seus históricos continuam cadastrados. As avaliações familiares permanecem na família original. A família pode ficar sem membros, com histórico preservado, e pode receber cadastros novos ou existentes posteriormente. O cadastro removido pode ser associado a outra família. Telefone e endereço já copiados não são revertidos automaticamente a valores anteriores desconhecidos.
+
+A retirada do membro e a limpeza da função de responsável ocorrem juntas numa atualização atômica no MongoDB, evitando responsável fora da lista em operações simultâneas. Não há exclusão de fichas ou migração de avaliações para outra família.
+
+Para permitir várias famílias vazias mantendo a proibição de uma pessoa participar de duas famílias, `lib/indiceVinculos.js` prepara o índice único parcial `familia_membros_unicos_v2`. Ele constrói a nova proteção antes de remover o índice legado `usuarioId_1_membros.cadastroId_1`, apenas quando o nome e a definição legada esperada são confirmados. A preparação é idempotente, ocorre na conexão do servidor e é conferida antes de remover um vínculo; se a preparação falhar, a remoção não acontece. Nenhum documento é apagado. A conta MongoDB do servidor deve permitir criar/remover índices, como na configuração normal da aplicação. Não são necessárias novas variáveis.

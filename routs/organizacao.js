@@ -5,6 +5,7 @@ const Cadastro = require('../models/cadastro');
 const { validarAvaliacao } = require('../lib/avaliacoes');
 const { sincronizarFamilia, aplicarContatoNasFichas, enderecoCompleto } = require('../lib/dadosFamilia');
 const { dadosCartao, gerarCartaoPDF } = require('../lib/cartaoFamilia');
+const { prepararIndiceFamilias } = require('../lib/indiceVinculos');
 const { prepararAvaliacao } = require('../lib/coelhoSavassi');
 
 function organizacao(autenticar) {
@@ -150,15 +151,16 @@ function organizacao(autenticar) {
     router.delete('/familias/:id/membros/:cadastroId', async (req, res) => {
         try {
             if (!idValido(req.params.id) || !idValido(req.params.cadastroId)) return res.status(400).json({ message: 'Família ou cadastro inválido.' });
-            const familia = await Familia.findOneAndUpdate({ ...consultaFamilia(req, req.params.id),
-                responsavelId: { $ne: req.params.cadastroId }, 'membros.cadastroId': req.params.cadastroId, 'membros.1': { $exists: true }
-            }, { $pull: { membros: { cadastroId: req.params.cadastroId } } }, { new: true });
-            if (!familia) {
-                const existente = await Familia.findOne(consultaFamilia(req, req.params.id)).lean();
-                if (existente && String(existente.responsavelId) === req.params.cadastroId) return res.status(409).json({ message: 'Escolha outro responsável antes de desvincular o atual.' });
-                if (existente?.membros.length === 1 && String(existente.membros[0].cadastroId) === req.params.cadastroId) return res.status(409).json({ message: 'Adicione o membro correto antes de desvincular o último cadastro. A função de responsável pode ficar pendente.' });
-                return res.status(404).json({ message: 'Família ou membro não encontrado.' });
-            }
+            const query = { ...consultaFamilia(req, req.params.id), 'membros.cadastroId': req.params.cadastroId };
+            if (!await Familia.exists(query)) return res.status(404).json({ message: 'Família ou membro não encontrado.' });
+            await prepararIndiceFamilias(Familia);
+            const cadastroId = new mongoose.Types.ObjectId(req.params.cadastroId);
+            // A função e o vínculo são retirados juntos, mesmo se houver troca simultânea de responsável.
+            const familia = await Familia.findOneAndUpdate(query, [{ $set: {
+                responsavelId: { $cond: [{ $eq: ['$responsavelId', cadastroId] }, null, '$responsavelId'] },
+                membros: { $filter: { input: '$membros', as: 'membro', cond: { $ne: ['$$membro.cadastroId', cadastroId] } } }
+            } }], { new: true });
+            if (!familia) return res.status(404).json({ message: 'Família ou membro não encontrado.' });
             await sincronizarFamilia(familia._id, req.usuario.id);
             res.json(familia);
         } catch (error) { falha(res, error); }

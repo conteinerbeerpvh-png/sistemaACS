@@ -85,12 +85,13 @@ test('não permite duplicação nem vincular uma pessoa a duas famílias, inclus
     assert.equal((await Familia.find({ 'membros.cadastroId': c._id })).length, 1);
 });
 
-test('protege responsável, permite substituição por membro e desvincula sem apagar cadastro', async () => {
+test('remove responsável sem substituição e permite definir outro membro depois', async () => {
     const a = await pessoa(), b = await pessoa(); const f = await familia(a);
     await api(`/familias/${f._id}/membros`, 'POST', { cadastroId: b._id, parentesco: 'Cônjuge' });
-    assert.equal((await api(`/familias/${f._id}/membros/${a._id}`, 'DELETE')).status, 409);
-    assert.equal((await api(`/familias/${f._id}/responsavel`, 'PUT', { cadastroId: b._id })).status, 200);
     assert.equal((await api(`/familias/${f._id}/membros/${a._id}`, 'DELETE')).status, 200);
+    assert.equal((await Familia.findById(f._id)).responsavelId, null);
+    assert.equal((await api(`/familias/${f._id}/responsavel`, 'PUT', { cadastroId: b._id })).status, 200);
+    assert.equal((await api(`/familias/${f._id}/membros/${a._id}`, 'DELETE')).status, 404);
     assert.ok(await Cadastro.findById(a._id));
     assert.equal((await Familia.findById(f._id)).membros.length, 1);
 });
@@ -301,8 +302,8 @@ test('remove função do responsável, mantém família e histórico, permite de
 test('responsável único pode ficar pendente sem apagar família ou ficha', async () => {
     const p = await pessoa(); const f = await familia(p);
     assert.equal((await api(`/familias/${f._id}/responsavel`, 'DELETE', { cadastroId: p._id })).status, 200);
-    assert.equal((await api(`/familias/${f._id}/membros/${p._id}`, 'DELETE')).status, 409);
-    assert.equal((await Familia.findById(f._id)).membros.length, 1);
+    assert.equal((await api(`/familias/${f._id}/membros/${p._id}`, 'DELETE')).status, 200);
+    assert.equal((await Familia.findById(f._id)).membros.length, 0);
     assert.ok(await Cadastro.findById(p._id));
 });
 test('campos tabagista e LGBTQIAPN+ persistem, editam e busca aceita acentos e condições', async () => {
@@ -320,4 +321,40 @@ test('campos tabagista e LGBTQIAPN+ persistem, editam e busca aceita acentos e c
     const editado = await api(`/cadastros/${p._id}`, 'PUT', { ...r.dados, lgbtqiapn: 'prefere_nao_informar' });
     assert.equal(editado.status, 200); assert.deepEqual(editado.dados.identificacoesLgbtqiapn, []);
     assert.equal((await api('/cadastros?search=bissexual')).dados.length, 0);
+});
+
+test('responsável único pode sair diretamente; várias famílias vazias preservam histórico e unicidade de membros', async () => {
+    const a = await pessoa(), b = await pessoa(); const f = await familia(a), g = await familia(b);
+    await api(`/familias/${f._id}/coelho-savassi`, 'POST', entradaDomicilio());
+    assert.equal((await api(`/familias/${f._id}/membros/${a._id}`, 'DELETE', undefined, agenteB)).status, 404);
+    for (const [fam, p] of [[f,a],[g,b]]) {
+        const r = await api(`/familias/${fam._id}/membros/${p._id}`, 'DELETE');
+        assert.equal(r.status, 200); assert.equal(r.dados.responsavelId, null); assert.equal(r.dados.membros.length, 0);
+        assert.ok(await Cadastro.findById(p._id));
+    }
+    assert.equal((await Familia.findById(f._id)).avaliacoesRisco.length, 1);
+    assert.equal((await api(`/familias/${f._id}/cartao`)).dados.membros.length, 0);
+    assert.equal((await api(`/familias/${g._id}/membros`, 'POST', { cadastroId: a._id, parentesco: 'Outro' })).status, 201);
+    assert.equal((await api(`/familias/${f._id}/membros`, 'POST', { cadastroId: a._id, parentesco: 'Outro' })).status, 409);
+});
+test('migração constrói índice parcial antes de remover índice legado e preserva famílias', async () => {
+    const { prepararIndiceFamilias } = require('../lib/indiceVinculos');
+    const a = await pessoa(); const f = await familia(a);
+    await Familia.collection.createIndex({ usuarioId: 1, 'membros.cadastroId': 1 }, { unique: true });
+    await prepararIndiceFamilias(Familia);
+    const indices = await Familia.collection.listIndexes().toArray();
+    assert.ok(indices.some(i => i.name === 'familia_membros_unicos_v2' && i.unique));
+    assert.equal(indices.some(i => i.name === 'usuarioId_1_membros.cadastroId_1'), false);
+    assert.equal((await Familia.findById(f._id)).membros.length, 1);
+    await prepararIndiceFamilias(Familia);
+});
+
+test('trocar e remover responsável simultaneamente nunca deixa responsável fora dos membros', async () => {
+    const a = await pessoa(), b = await pessoa(); const f = await familia(a);
+    await api(`/familias/${f._id}/membros`, 'POST', { cadastroId: b._id, parentesco: 'Outro' });
+    const respostas = await Promise.all([api(`/familias/${f._id}/responsavel`, 'PUT', { cadastroId: b._id }), api(`/familias/${f._id}/membros/${b._id}`, 'DELETE')]);
+    assert.equal(respostas[1].status, 200); assert.ok([200,404].includes(respostas[0].status));
+    const salvo = await Familia.findById(f._id);
+    assert.ok(!salvo.responsavelId || salvo.membros.some(m => String(m.cadastroId) === String(salvo.responsavelId)));
+    assert.equal(salvo.membros.some(m => String(m.cadastroId) === String(b._id)), false);
 });

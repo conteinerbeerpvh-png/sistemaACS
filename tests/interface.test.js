@@ -363,6 +363,29 @@ test('adicionar familiar e editar parentesco usam modais e voltar preserva a fam
     assert.equal(dom.window.document.body.classList.contains('modal-aberto'), false);
 });
 
+test('responsável pode ser removido diretamente pela família ou edição, sem escolher substituto', async () => {
+    const f = await Familia.findOne({ responsavelId: existente.id });
+    dom.window.abrirFamilia(f.id);
+    const historico = f.avaliacoesRisco.length;
+    elemento('familiaDetalhe').querySelector(`[data-desvincular="${existente.id}"]`).click();
+    await esperar(async () => !(await Familia.findById(f.id)).responsavelId, 'remover responsável e vínculo juntos');
+    await esperar(() => elemento('familiaDetalhe').querySelectorAll('.membro-item').length === 2, 'atualizar membros');
+    assert.ok(await Cadastro.findById(existente.id));
+    assert.equal((await Familia.findById(f.id)).avaliacoesRisco.length, historico);
+    const sozinha = await Familia.findOne({ nome: /Nova Tentativa/ });
+    assert.equal(sozinha.membros.length, 1);
+    const pessoaId = String(sozinha.responsavelId);
+    dom.window.editarCadastro(pessoaId);
+    assert.equal(elemento('removerDaFamiliaCadastro').hidden, false);
+    elemento('removerDaFamiliaCadastro').click();
+    await esperar(async () => (await Familia.findById(sozinha.id)).membros.length === 0, 'remover único cadastro pela edição');
+    await esperar(() => !elemento('removerDaFamiliaCadastro').disabled, 'concluir remoção');
+    assert.equal(elemento('removerDaFamiliaCadastro').hidden, true);
+    assert.equal((await Familia.findById(sozinha.id)).responsavelId, null);
+    assert.ok(await Cadastro.findById(pessoaId));
+    elemento('fecharCadastro').click();
+});
+
 test('instalação tem instruções em modal e estado sem conexão é visível', async () => {
     dom.window.fecharTodosModais(); elemento('instalarApp').click();
     assert.equal(elemento('instalacaoDialog').open, true);

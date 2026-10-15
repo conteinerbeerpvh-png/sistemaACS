@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const avaliacaoRiscoSchema = require('./avaliacaoRisco');
+const { chaves, opcoes } = require('../lib/indiceVinculos');
 
 const familiaSchema = new mongoose.Schema({
     usuarioId: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true },
@@ -18,7 +19,7 @@ const familiaSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Um cadastro pertence a uma única família do mesmo agente. A restrição é atômica no MongoDB.
-familiaSchema.index({ usuarioId: 1, 'membros.cadastroId': 1 }, { unique: true });
+familiaSchema.index(chaves, opcoes);
 familiaSchema.pre('validate', function () {
     const ids = this.membros.map(membro => String(membro.cadastroId));
     if (this.responsavelId && !ids.includes(String(this.responsavelId))) this.invalidate('responsavelId', 'O responsável deve ser um membro da família.');

@@ -99,3 +99,11 @@ ATUALIZAÇÃO V8 - CELULAR RESPONSIVO E PWA
 - Consultas e salvamentos continuam exigindo internet. Não há cadastro offline.
 - O cache do PWA não guarda fichas de pacientes nem cartões.
 - Não precisa mudar o banco nem adicionar variáveis de ambiente.
+
+ATUALIZAÇÃO V9 - REMOVER CADASTRO DA FAMÍLIA SEM SUBSTITUIR RESPONSÁVEL
+- Remover da família aparece em todos os membros e na edição da ficha vinculada.
+- O responsável pode ser removido diretamente. A família fica pendente, sem exigir substituto.
+- O último cadastro também pode sair. A família vazia e seu histórico são preservados.
+- A ficha individual não é excluída; pode ser vinculada a outra família depois.
+- Envie todos os arquivos, incluindo lib/indiceVinculos.js e o modelo de família atualizado.
+- A atualização prepara automaticamente o índice de vínculos, sem apagar documentos.

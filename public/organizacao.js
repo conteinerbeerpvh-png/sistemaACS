@@ -54,6 +54,9 @@ function prepararResponsavelNoFormulario(cadastro) {
     const jaResponsavel = Boolean(familia && String(familia.responsavelId) === cadastro._id);
     $('responsavelFamilia').checked = jaResponsavel;
     $('responsavelFamilia').disabled = jaResponsavel;
+    $('removerDaFamiliaCadastro').hidden = !familia;
+    $('removerDaFamiliaCadastro').dataset.familia = familia?._id || '';
+    $('removerDaFamiliaCadastro').dataset.pessoa = cadastro?._id || '';
     $('removerResponsavelCadastro').hidden = !jaResponsavel;
     $('removerResponsavelCadastro').dataset.familia = jaResponsavel ? familia._id : '';
     $('removerResponsavelCadastro').dataset.pessoa = jaResponsavel ? cadastro._id : '';
@@ -140,7 +143,7 @@ function abrirFamilia(id, exibir = true) {
     $('familiaDialogTitulo').textContent = f.nome;
     $('familiaDetalhe').innerHTML = `<p class="help-text">${texto(f.endereco || 'Endereço não informado')}</p>
         <section class="notice"><strong>Cartão da família</strong><p id="cartaoStatus">Preparando cartão frente e verso...</p><div class="cadastro-actions"><button id="verCartao" type="button" class="btn-edit" disabled>Ver cartão</button><button id="baixarCartao" type="button" class="btn-print" disabled>Baixar PDF</button><button id="whatsappCartao" type="button" class="btn-whatsapp" disabled>Enviar por WhatsApp</button><button id="atualizarCartao" type="button" class="btn-clear">Atualizar cartão</button></div><small>Se o celular abrir o menu de compartilhamento, escolha WhatsApp. Quando não houver suporte a anexos, baixe o PDF e anexe na conversa.</small></section>
-        ${f.responsavelId ? '<p class="help-text">Telefone, endereço, bairro e número da casa dos membros seguem os dados do responsável.</p>' : '<p class="notice">Responsável pendente. Escolha um membro e clique em “Tornar responsável”. Cada ficha mantém seus dados atuais. Para desvincular o último cadastro, primeiro adicione o membro correto.</p>'}
+        ${f.responsavelId ? '<p class="help-text">Telefone, endereço, bairro e número da casa dos membros seguem os dados do responsável.</p>' : '<p class="notice">Responsável pendente. Escolha um membro e clique em “Tornar responsável”. Cada ficha mantém seus dados atuais. A família pode ficar sem membros até você adicionar os cadastros corretos.</p>'}
         <button id="abrirVinculo" type="button" class="btn-primary">Adicionar familiar</button>
         <section id="vinculoConteudo"><div class="form-group"><label for="membroBusca">Pesquisar pessoa já cadastrada</label><input id="membroBusca" placeholder="Nome, CPF ou telefone" autocomplete="off"></div>
         <div class="form-row"><div class="form-group"><label for="membroExistente">Adicionar cadastro existente</label><select id="membroExistente"><option value="">Selecione...</option>${disponiveis.map(p => `<option value="${texto(p._id)}">${texto(p.nomeCompleto)} · ${texto(p.cpf)}</option>`).join('')}</select></div><div class="form-group"><label for="membroParentesco">Vínculo/parentesco com o responsável</label><input id="membroParentesco" maxlength="100" placeholder="Ex.: filho, cônjuge ou outro vínculo"></div></div>
@@ -149,7 +152,7 @@ function abrirFamilia(id, exibir = true) {
             const p = m.cadastroId;
             if (!p?._id) return '<p class="help-text">Membro indisponível. Verifique o cadastro.</p>';
             const responsavel = String(f.responsavelId) === p._id;
-            return `<article class="membro-item"><strong>${texto(p.nomeCompleto)}</strong> · ${responsavel ? 'Responsável' : texto(m.parentesco || 'Vínculo não informado')}${p.arquivado ? ' · Cadastro arquivado' : ''}<p>CPF: ${texto(p.cpf)}</p><div class="cadastro-actions"><button class="btn-print" data-risco-pessoa="${texto(p._id)}" type="button">Risco individual</button>${!responsavel ? `<button class="btn-clear" data-vinculo="${texto(p._id)}" type="button">Editar vínculo</button><button class="btn-edit" data-responsavel="${texto(p._id)}" type="button">Tornar responsável</button><button class="btn-delete" data-desvincular="${texto(p._id)}" type="button">Desvincular</button>` : `<button class="btn-delete" data-remover-responsavel="${texto(p._id)}" type="button">Remover responsável</button>`}</div></article>`;
+            return `<article class="membro-item"><strong>${texto(p.nomeCompleto)}</strong> · ${responsavel ? 'Responsável' : texto(m.parentesco || 'Vínculo não informado')}${p.arquivado ? ' · Cadastro arquivado' : ''}<p>CPF: ${texto(p.cpf)}</p><div class="cadastro-actions"><button class="btn-print" data-risco-pessoa="${texto(p._id)}" type="button">Risco individual</button>${!responsavel ? `<button class="btn-clear" data-vinculo="${texto(p._id)}" type="button">Editar vínculo</button><button class="btn-edit" data-responsavel="${texto(p._id)}" type="button">Tornar responsável</button>` : `<button class="btn-delete" data-remover-responsavel="${texto(p._id)}" type="button">Retirar função de responsável</button>`}<button class="btn-delete" data-desvincular="${texto(p._id)}" type="button">Remover da família</button></div></article>`;
         }).join('')}</div>`;
     $('vinculoCorpo').replaceChildren($('familiaDetalhe').querySelector('#vinculoConteudo'));
     if (exibir) window.abrirModal('familiaDialog');
@@ -225,7 +228,7 @@ async function acaoDetalheFamilia(event) {
             window.abrirModal('parentescoDialog');
         }
         if (b.dataset.removerResponsavel && confirm('Remover esta pessoa da função de responsável? A família e o histórico serão mantidos. Depois você poderá desvinculá-la e definir outro responsável.')) await acaoFamilia('/responsavel', 'DELETE', { cadastroId: b.dataset.removerResponsavel });
-        if (b.dataset.desvincular && confirm('Desvincular da família? A ficha individual será mantida.')) await acaoFamilia('/membros/' + b.dataset.desvincular, 'DELETE');
+        if (b.dataset.desvincular && confirm('Remover este cadastro da família? A ficha individual será mantida. Se for o responsável, a família ficará com responsável pendente, sem exigir substituto.')) await acaoFamilia('/membros/' + b.dataset.desvincular, 'DELETE');
         if (b.dataset.riscoPessoa) await window.abrirCoelhoSavassi?.(b.dataset.riscoPessoa, 'cadastros');
         if (b.id === 'novoMembro') {
             cancelarEdicao(); const familia = familias.find(f => f._id === familiaAberta);
@@ -335,4 +338,16 @@ $('parentescoForm').addEventListener('submit', async event => {
         await carregarOrganizacao(); window.fecharModal('parentescoDialog'); parentescoContexto = null;
     } catch (e) { $('parentescoMensagem').textContent = e.message; }
     finally { $('salvarParentesco').disabled = false; }
+});
+
+$('removerDaFamiliaCadastro').addEventListener('click', async () => {
+    const b = $('removerDaFamiliaCadastro'); const familiaId = b.dataset.familia, pessoaId = b.dataset.pessoa;
+    if (!familiaId || !confirm('Remover este cadastro da família? A ficha individual será mantida. Se for o responsável, a família ficará com responsável pendente, sem exigir substituto.')) return;
+    b.disabled = true;
+    try {
+        const r = await requisicao(`/api/familias/${familiaId}/membros/${pessoaId}`, { method: 'DELETE' });
+        if (!r.ok) throw new Error(await mensagem(r));
+        await carregarOrganizacao(); prepararResponsavelNoFormulario(cadastros.find(c => c._id === pessoaId));
+        $('responsavelFamiliaAjuda').textContent = 'Cadastro removido da família. Sua ficha individual e os históricos foram preservados.';
+    } catch (e) { alert(e.message); } finally { b.disabled = false; }
 });

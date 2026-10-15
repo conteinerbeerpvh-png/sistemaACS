@@ -13,6 +13,7 @@ const Usuario = require('./models/usuario');
 const Familia = require('./models/familia');
 const pesquisa = require('./public/pesquisa');
 const identificacoesPermitidas = ['Lésbica', 'Gay', 'Bissexual', 'Travesti', 'Transexual', 'Transgênero', 'Queer', 'Em questionamento', 'Intersexo', 'Assexual', 'Arromântico(a)', 'Agênero', 'Pansexual', 'Não binário(a)', 'Outra identificação'];
+const { prepararIndiceFamilias } = require('./lib/indiceVinculos');
 const { organizacao } = require('./routs/organizacao');
 const { sincronizarPessoa, aplicarContatoNasFichas } = require('./lib/dadosFamilia');
 function criarApp(opcoes = {}) {
@@ -139,7 +140,7 @@ function criarApp(opcoes = {}) {
             const cadastro = await Cadastro.findOne(query).lean();
             if (!cadastro) return res.status(404).json({ message: 'Cadastro não encontrado.' });
             if (cadastro.avaliacoesRisco?.length) return res.status(409).json({ message: 'O cadastro possui avaliações de risco. A exclusão foi bloqueada para preservar o histórico.' });
-            if (await Familia.exists({ usuarioId: req.usuario.id, 'membros.cadastroId': req.params.id })) return res.status(409).json({ message: 'Desvincule o cadastro da família antes de excluí-lo. Se for responsável, escolha outro primeiro.' });
+            if (await Familia.exists({ usuarioId: req.usuario.id, 'membros.cadastroId': req.params.id })) return res.status(409).json({ message: 'Desvincule o cadastro da família antes de excluí-lo. A opção Remover da família também pode ser usada para o responsável.' });
             const resultado = await Cadastro.updateOne({ ...query, 'avaliacoesRisco.0': { $exists: false } }, { $set: { arquivado: true } });
             if (!resultado.modifiedCount) return res.status(409).json({ message: 'O cadastro foi atualizado. Recarregue a lista antes de tentar novamente.' });
             res.json({ message: 'Cadastro removido da lista com sucesso.' });
@@ -164,6 +165,7 @@ if (require.main === module) {
 mongoose.connect(MONGODB_URI).then(async () => {
     try { await Cadastro.collection.dropIndex('cpf_1'); console.log('Índice antigo de CPF removido.'); }
     catch (error) { if (error.codeName !== 'IndexNotFound') console.warn('Não foi possível remover o índice antigo de CPF:', error.message); }
+    await prepararIndiceFamilias(Familia);
     console.log('MongoDB connected');
 }).catch(error => console.error('MongoDB connection error:', error.message));
 
