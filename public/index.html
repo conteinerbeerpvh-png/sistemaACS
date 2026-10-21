@@ -12,7 +12,7 @@
     <link rel="icon" href="assets/icons/icon-192.png" type="image/png">
     <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
     <title>ACS Cadastro</title>
-    <link rel="stylesheet" href="style.css?v=8">
+    <link rel="stylesheet" href="style.css?v=12">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -219,6 +219,10 @@
         <div class="dialog-header"><h2 id="historicoFamiliaTitulo">Histórico da família</h2><button id="fecharHistoricoFamilia" type="button" class="btn-cancel">Fechar</button></div>
         <div id="historicoFamiliaConteudo"></div>
     </dialog>
+    <dialog id="dadosFamiliaresDialog" aria-labelledby="dadosFamiliaresTitulo">
+        <div class="dialog-header"><h2 id="dadosFamiliaresTitulo">Dados dos familiares</h2><button id="fecharDadosFamiliares" type="button" class="btn-cancel">Voltar</button></div>
+        <div id="dadosFamiliaresConteudo" aria-live="polite"></div>
+    </dialog>
     <dialog id="familiaDialog" aria-labelledby="familiaDialogTitulo">
         <div class="dialog-header"><h2 id="familiaDialogTitulo">Família e membros</h2><button id="fecharFamilia" type="button" class="btn-cancel">Fechar</button></div>
         <section id="familiaDetalhe" hidden></section>
@@ -294,11 +298,12 @@
         <div id="cartaoVisual"></div>
     </dialog>
 </div>
-<script src="modais.js?v=2"></script>
+<script src="modais.js?v=3"></script>
 <script src="pesquisa.js?v=1"></script>
 <script src="risco.js?v=1"></script>
-<script src="script.js?v=22"></script>
-<script src="organizacao.js?v=10"></script>
+<script src="etapas.js?v=1"></script>
+<script src="script.js?v=23"></script>
+<script src="organizacao.js?v=12"></script>
 <script src="cartao.js?v=2"></script>
 <script src="coelho-savassi.js?v=1"></script>
 <script src="coelho-formulario.js?v=3"></script>

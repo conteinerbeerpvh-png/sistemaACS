@@ -388,3 +388,23 @@ test('família vazia com avaliações sai das ativas e histórico protegido cont
     assert.equal((await api('/familias')).dados.length, 1);
     assert.equal((await Familia.findById(f._id)).avaliacoesRisco.length, 1);
 });
+
+test('consulta familiar reúne fichas atuais, nascimento e contato canônico com acesso privado', async () => {
+    const resp = await pessoa(), membro = await pessoa(); const f = await familia(resp);
+    await api(`/familias/${f._id}/membros`, 'POST', { cadastroId: membro._id, parentesco: 'Filho' });
+    await Cadastro.updateOne({ _id: membro._id }, { $set: { dataNascimento: '2012-04-05', telefone: 'contato antigo', doencasPreexistentes: ['Tabagista'], gestante: true } });
+    const r = await api(`/familias/${f._id}/dados-membros`);
+    assert.equal(r.status, 200); assert.equal(r.dados.membros.length, 2);
+    const filho = r.dados.membros.find(m => m.cadastro._id === membro._id);
+    assert.equal(filho.parentesco, 'Filho'); assert.equal(filho.responsavel, false);
+    assert.match(filho.cadastro.dataNascimento, /^2012-04-05/);
+    assert.equal(filho.cadastro.telefone, resp.telefone);
+    assert.equal(filho.cadastro.gestante, true); assert.deepEqual(filho.cadastro.doencasPreexistentes, ['Tabagista']);
+    assert.equal(filho.cadastro.usuarioId, undefined); assert.equal(filho.cadastro.avaliacoesRisco, undefined);
+    assert.equal(r.dados.membros.find(m => m.cadastro._id === resp._id).responsavel, true);
+    assert.equal((await api(`/familias/${f._id}/dados-membros`, 'GET', undefined, agenteB)).status, 404);
+    assert.equal((await api(`/familias/${f._id}/dados-membros`, 'GET', undefined, null)).status, 401);
+    assert.equal((await api('/familias/invalido/dados-membros')).status, 400);
+    await api(`/familias/${f._id}/membros/${membro._id}`, 'DELETE');
+    assert.equal((await api(`/familias/${f._id}/dados-membros`)).dados.membros.length, 1);
+});

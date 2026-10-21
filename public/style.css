@@ -608,3 +608,49 @@ fieldset { min-inline-size: 0; }
 @media (max-width: 600px) {
     dialog, #cartaoDialog { top: calc(var(--viewport-top, 0px) + 8px + env(safe-area-inset-top)); bottom: auto; margin: 0 auto; max-height: calc(var(--viewport-height, 100dvh) - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 }
+
+.dados-familiar { border: 1px solid #ddd; border-radius: 10px; padding: 14px; margin: 14px 0; overflow-wrap: anywhere; }
+.dados-familiar h3 { font-size: 18px; }
+.dados-familiar-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; margin: 14px 0; }
+.dados-familiar-grade div { min-width: 0; }
+.dados-familiar-grade dt { font-size: 13px; color: #555; margin-bottom: 4px; }
+.dados-familiar-grade dd { margin: 0; font-weight: 600; }
+.dados-familiar details { border-top: 1px solid #ddd; padding-top: 12px; }
+.dados-familiar summary { cursor: pointer; min-height: 44px; display: list-item; padding: 10px 0; }
+@media (max-width: 420px) { .dados-familiar-grade { grid-template-columns: minmax(0, 1fr); } }
+
+/* Preenchimento guiado: os campos originais continuam no mesmo formulário. */
+.etapas-progresso { margin: 12px 0 18px; }
+.etapas-andamento { font-weight: 600; color: #5145a8; margin-bottom: 8px; }
+.etapas-progresso progress { width: 100%; height: 8px; accent-color: #5b4fc4; display: block; }
+.etapas-salto { display: block; margin-top: 12px; font-size: 14px; color: #555; }
+.etapas-salto select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; margin-top: 5px; }
+.etapas-secao h3 { font-size: 20px; margin: 12px 0 18px; color: #30285a; }
+.etapas-secao h3:focus { outline: none; }
+.etapas-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.etapas-campos > * { min-width: 0; }
+.etapas-campos > .ocr-section, .etapas-campos > fieldset, .etapas-campos > .notice { grid-column: 1 / -1; }
+.etapas-mensagem, .etapas-erro { color: #a71919; font-size: 14px; margin: 8px 0; line-height: 1.4; }
+[aria-invalid="true"] { border-color: #a71919 !important; }
+dialog .form-buttons.etapas-acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.etapas-acoes button { width: 100%; min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.etapas-voltar { grid-column: 1; grid-row: 1; }
+.etapas-proximo, .etapas-salvar { grid-column: 2; grid-row: 1; }
+.etapas-rever, .etapas-acoes .btn-cancel { grid-column: 1 / -1; }
+.etapas-resumo { border: 1px solid #ddd; border-radius: 10px; padding: 14px; margin: 14px 0; overflow-wrap: anywhere; }
+.etapas-resumo-titulo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.etapas-resumo-titulo h4 { min-width: 0; font-size: 16px; }
+.etapas-resumo-titulo button { width: auto; flex: 0 0 auto; }
+.etapas-resumo dl { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.etapas-resumo dl div { min-width: 0; }
+.etapas-resumo dt { color: #555; font-size: 13px; margin-bottom: 4px; }
+.etapas-resumo dd { margin: 0; font-weight: 600; }
+@media (max-width: 600px) { .etapas-campos, .etapas-resumo dl { grid-template-columns: minmax(0, 1fr); } .etapas-secao h3 { font-size: 18px; } }
+/* Ações secundárias dividem a linha para não cobrir os campos no celular. */
+.etapas-acoes .btn-cancel { grid-column: 1; grid-row: 2; }
+.etapas-acoes .etapas-rever { grid-column: 2; grid-row: 2; }
+.etapas-acoes:has(.etapas-voltar[hidden]) .btn-cancel { grid-column: 1; grid-row: 1; }
+.etapas-acoes:has(.etapas-voltar[hidden]) .etapas-rever { grid-column: 1 / -1; }
+.etapas-acoes:has(.etapas-voltar[hidden]):has(.btn-cancel[hidden]) .etapas-proximo { grid-column: 1 / -1; }
+.etapas-acoes:has(.etapas-proximo[hidden]) .btn-cancel { grid-column: 1 / -1; }
+dialog:has(.etapas-acoes) { scroll-padding-bottom: 150px; }

@@ -115,3 +115,22 @@ ATUALIZAÇÃO V10 - EXCLUIR FAMÍLIAS VAZIAS
 - Use Mostrar famílias para consultar ou restaurar arquivadas.
 - Nenhuma ficha individual é apagada.
 - Substitua todos os arquivos deste ZIP no repositório.
+
+ATUALIZAÇÃO V11 - VER DADOS DOS FAMILIARES
+- Botão Ver dados dos familiares junto às opções do cartão.
+- Modal com nascimento, idade, CPF, telefone e endereço de todos os membros.
+- Condições de saúde e outras informações podem ser expandidas por pessoa.
+- Voltar retorna à família sem precisar pesquisar nos cadastros.
+- Consulta os dados atuais; precisa de conexão e login.
+- O cartão/PDF compartilhado continua com o mesmo conteúdo.
+- Envie todos os arquivos deste ZIP; não exige novas variáveis.
+
+ATUALIZAÇÃO V12 - CADASTRO GUIADO POR ETAPAS
+- A mudança é apenas na forma de preencher: todos os campos e recursos existentes foram mantidos.
+- Paciente, responsável e novo familiar: 6 etapas com Voltar, Próximo e revisão.
+- Família manual: 3 etapas, preservando todos os dados atuais.
+- Na edição, use Ir para etapa para acessar diretamente a parte desejada.
+- Voltar mantém as respostas; Salvar fica na revisão final.
+- Máscaras, preenchimento por voz, herança de contato e vínculos continuam funcionando.
+- Envie TODOS os arquivos, incluindo o novo public/etapas.js.
+- Não muda o banco nem as variáveis de ambiente.

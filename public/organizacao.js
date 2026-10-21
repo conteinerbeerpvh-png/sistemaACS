@@ -1,5 +1,6 @@
 let familias = [];
 let familiasArquivadas = [];
+let consultaDadosFamiliares = 0;
 let pessoasFamilia = [];
 let familiaAberta = null;
 let familiaEditando = null;
@@ -105,6 +106,7 @@ window.abrirFamiliaDoResponsavel = async function (cadastro) {
 window.limparOrganizacao = function () {
     familias = []; familiasArquivadas = []; $('familiasEstado').value = 'ativas'; $('historicoFamiliaConteudo').replaceChildren(); $('historicoFamiliaTitulo').textContent = 'Histórico da família'; pessoasFamilia = []; familiaAberta = null; familiaEditando = null;
     novoFamiliarContexto = null; familiaDoNovoMembro = null; riscoContexto = null;
+    consultaDadosFamiliares++; $('dadosFamiliaresConteudo').replaceChildren(); $('dadosFamiliaresTitulo').textContent = 'Dados dos familiares';
     window.fecharTodosModais?.();
     window.limparCartoes?.();
     window.limparCoelho?.();
@@ -144,7 +146,7 @@ function abrirFamilia(id, exibir = true) {
     $('familiaDetalhe').hidden = false;
     $('familiaDialogTitulo').textContent = f.nome;
     $('familiaDetalhe').innerHTML = `<p class="help-text">${texto(f.endereco || 'Endereço não informado')}</p>
-        <section class="notice"><strong>Cartão da família</strong><p id="cartaoStatus">Preparando cartão frente e verso...</p><div class="cadastro-actions"><button id="verCartao" type="button" class="btn-edit" disabled>Ver cartão</button><button id="baixarCartao" type="button" class="btn-print" disabled>Baixar PDF</button><button id="whatsappCartao" type="button" class="btn-whatsapp" disabled>Enviar por WhatsApp</button><button id="atualizarCartao" type="button" class="btn-clear">Atualizar cartão</button></div><small>Se o celular abrir o menu de compartilhamento, escolha WhatsApp. Quando não houver suporte a anexos, baixe o PDF e anexe na conversa.</small></section>
+        <section class="notice"><strong>Cartão da família</strong><p id="cartaoStatus">Preparando cartão frente e verso...</p><div class="cadastro-actions"><button id="verDadosFamiliares" type="button" class="btn-secondary">Ver dados dos familiares</button><button id="verCartao" type="button" class="btn-edit" disabled>Ver cartão</button><button id="baixarCartao" type="button" class="btn-print" disabled>Baixar PDF</button><button id="whatsappCartao" type="button" class="btn-whatsapp" disabled>Enviar por WhatsApp</button><button id="atualizarCartao" type="button" class="btn-clear">Atualizar cartão</button></div><small>Se o celular abrir o menu de compartilhamento, escolha WhatsApp. Quando não houver suporte a anexos, baixe o PDF e anexe na conversa.</small></section>
         ${f.responsavelId ? '<p class="help-text">Telefone, endereço, bairro e número da casa dos membros seguem os dados do responsável.</p>' : '<p class="notice">Responsável pendente. Escolha um membro e clique em “Tornar responsável”. Cada ficha mantém seus dados atuais. A família pode ficar sem membros até você adicionar os cadastros corretos.</p>'}
         ${!f.membros.length ? `<button type="button" class="btn-delete" data-excluir-familia="${texto(f._id)}">Excluir família</button>` : ''}
         <button id="abrirVinculo" type="button" class="btn-primary">Adicionar familiar</button>
@@ -210,7 +212,7 @@ $('familiasList').addEventListener('click', event => {
         atualizarResponsaveis(); $('familiaNome').value = familiaEditando.nome; $('familiaFicha').value = familiaEditando.numeroFicha || '';
         $('familiaMicroarea').value = familiaEditando.microarea || ''; $('familiaEndereco').value = familiaEditando.endereco || '';
         $('familiaResponsavel').value = String(familiaEditando.responsavelId); $('familiaResponsavel').disabled = true;
-        $('salvarFamilia').textContent = 'Salvar alterações da família'; $('cancelarFamilia').hidden = false;
+        $('salvarFamilia').textContent = 'Salvar alterações da família'; $('cancelarFamilia').hidden = false; window.reiniciarEtapas?.('familiaForm', true);
     }
 });
 async function acaoFamilia(rota, metodo, dados) {
@@ -223,6 +225,7 @@ async function acaoDetalheFamilia(event) {
     b.disabled = true;
     try {
         if (b.dataset.excluirFamilia) { await excluirFamilia(b.dataset.excluirFamilia); return; }
+        if (b.id === 'verDadosFamiliares') { await abrirDadosFamiliares(familiaAberta); return; }
         if (b.id === 'abrirVinculo') window.abrirModal('vinculoDialog');
         if (['verCartao', 'baixarCartao', 'whatsappCartao', 'atualizarCartao'].includes(b.id)) { await window.acaoCartaoFamilia?.(b.id, familiaAberta); return; }
         if (b.id === 'vincularMembro') { if (!$('membroExistente').value) throw new Error('Selecione um cadastro existente.'); await acaoFamilia('/membros', 'POST', { cadastroId: $('membroExistente').value, parentesco: $('membroParentesco').value }); window.fecharModal('vinculoDialog'); }
@@ -396,3 +399,41 @@ async function restaurarFamilia(id) {
         await carregarOrganizacao(); await carregarFamiliasArquivadas(); $('familiaMensagem').textContent = 'Família restaurada na lista ativa.';
     } catch (e) { alert(e.message); }
 }
+
+function idadeFamiliar(nascimento, hoje = risco.hoje()) {
+    const data = String(nascimento || '').slice(0, 10);
+    if (!risco.dataValida(data) || !risco.dataValida(hoje) || data > hoje) return 'Não informada';
+    const [ano, mes, dia] = data.split('-').map(Number), [atual, mesAtual, diaAtual] = hoje.split('-').map(Number);
+    const anos = atual - ano - (mesAtual < mes || (mesAtual === mes && diaAtual < dia) ? 1 : 0);
+    if (anos > 0) return `${anos} ${anos === 1 ? 'ano' : 'anos'}`;
+    const meses = (atual - ano) * 12 + mesAtual - mes - (diaAtual < dia ? 1 : 0);
+    return meses > 0 ? `${meses} ${meses === 1 ? 'mês' : 'meses'}` : 'Menos de 1 mês';
+}
+function fichaFamiliar(membro) {
+    const p = membro.cadastro;
+    if (!p) return '<article class="dados-familiar"><p>Cadastro indisponível. Verifique o vínculo desta pessoa.</p></article>';
+    const linha = (nome, valor) => `<div><dt>${texto(nome)}</dt><dd>${texto(valor || 'Não informado')}</dd></div>`;
+    const simNao = valor => valor === true ? 'Sim' : valor === false ? 'Não' : 'Não informado';
+    const data = String(p.dataNascimento || '').slice(0, 10);
+    const doencas = [...(p.doencasPreexistentes || []), p.outrasDoencas].filter(Boolean).join(', ');
+    return `<article class="dados-familiar"><h3>${texto(p.nomeCompleto)}</h3><p class="help-text">${texto(membro.responsavel ? 'Responsável pela família' : membro.parentesco || 'Vínculo não informado')}${p.arquivado ? ' · Cadastro arquivado' : ''}</p>
+        <dl class="dados-familiar-grade">${linha('Data de nascimento', risco.dataValida(data) ? formatarData(data) : 'Não informada')}${linha('Idade', idadeFamiliar(p.dataNascimento))}${linha('CPF', p.cpf)}${linha('Telefone', p.telefone)}${linha('Endereço', p.endereco)}${linha('Número', p.numero)}${linha('Bairro', p.bairro)}</dl>
+        <details><summary>Condições e outras informações</summary><dl class="dados-familiar-grade">${linha('Sexo', p.sexo === 'M' ? 'Masculino' : p.sexo === 'F' ? 'Feminino' : 'Não informado')}${linha('Gestante', simNao(p.gestante))}${linha('Criança de 0 a 9 anos', simNao(p.criancaDeZeroANove))}${linha('Acamado', simNao(p.acamado))}${linha('Domiciliado', simNao(p.domiciliado))}${linha('Doenças e condições registradas', doencas || 'Nenhuma informada')}${linha('Identificação LGBTQIAPN+', rotuloLgbt(p))}</dl></details>
+    </article>`;
+}
+async function abrirDadosFamiliares(id) {
+    const consulta = ++consultaDadosFamiliares, sessao = token;
+    $('dadosFamiliaresTitulo').textContent = 'Dados dos familiares';
+    $('dadosFamiliaresConteudo').textContent = 'Carregando os dados atuais...';
+    window.abrirModal('dadosFamiliaresDialog');
+    try {
+        const r = await requisicao(`/api/familias/${id}/dados-membros`); if (!r.ok) throw new Error(await mensagem(r));
+        const dados = await r.json();
+        if (consulta !== consultaDadosFamiliares || sessao !== token || !$('dadosFamiliaresDialog').open) return;
+        $('dadosFamiliaresTitulo').textContent = `Familiares — ${dados.nome}`;
+        $('dadosFamiliaresConteudo').innerHTML = dados.membros.length ? `<p class="help-text">${dados.membros.length} familiar(es). Os dados abaixo são de consulta.</p>` + dados.membros.map(fichaFamiliar).join('') : '<p>Esta família ainda não tem membros vinculados.</p>';
+    } catch (e) {
+        if (consulta === consultaDadosFamiliares && sessao === token && $('dadosFamiliaresDialog').open) $('dadosFamiliaresConteudo').textContent = e.message;
+    }
+}
+$('fecharDadosFamiliares').addEventListener('click', () => window.fecharModal('dadosFamiliaresDialog'));

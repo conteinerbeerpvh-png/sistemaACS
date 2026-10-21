@@ -27,8 +27,12 @@
     window.abrirModal = id => {
         ajustarViewport();
         const dialog = document.getElementById(id);
-        if (!dialog || dialog.open) return;
-        retornos.set(dialog, document.activeElement);
+        if (!dialog) return;
+        if (dialog.open) {
+            if (ordem.at(-1) === dialog) return;
+            dialog.close();
+            const anterior = ordem.indexOf(dialog); if (anterior !== -1) ordem.splice(anterior, 1);
+        } else retornos.set(dialog, document.activeElement);
         ordem.push(dialog);
         dialog.showModal(); dialog.scrollTop = 0;
         sincronizarFundo();

@@ -71,6 +71,24 @@ function organizacao(autenticar) {
         } catch (_) { res.status(503).json({ message: 'Não foi possível salvar a avaliação. Tente novamente.' }); }
     });
 
+    router.get('/familias/:id/dados-membros', async (req, res) => {
+        try {
+            if (!idValido(req.params.id)) return res.status(400).json({ message: 'Família inválida.' });
+            const familia = await Familia.findOne(consultaFamilia(req, req.params.id)).populate({
+                path: 'membros.cadastroId', match: { usuarioId: req.usuario.id },
+                select: 'nomeCompleto dataNascimento cpf telefone endereco numero bairro sexo criancaDeZeroANove gestante acamado domiciliado doencasPreexistentes outrasDoencas lgbtqiapn identificacoesLgbtqiapn arquivado'
+            }).lean();
+            if (!familia) return res.status(404).json({ message: 'Família não encontrada.' });
+            const pessoas = familia.membros.map(m => m.cadastroId).filter(Boolean);
+            const contatos = await aplicarContatoNasFichas(pessoas, req.usuario.id);
+            const porId = new Map(contatos.map(p => [String(p._id), p]));
+            res.json({ nome: familia.nome, membros: familia.membros.map(m => ({
+                parentesco: m.parentesco || '', responsavel: String(m.cadastroId?._id) === String(familia.responsavelId),
+                cadastro: m.cadastroId ? porId.get(String(m.cadastroId._id)) : null
+            })) });
+        } catch (_) { res.status(503).json({ message: 'Não foi possível carregar os dados dos familiares. Tente novamente.' }); }
+    });
+
     router.get('/familias/:id/cartao', async (req, res) => {
         try {
             if (!idValido(req.params.id)) return res.status(400).json({ message: 'Família inválida.' });

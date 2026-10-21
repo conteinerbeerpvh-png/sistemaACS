@@ -158,3 +158,27 @@ Famílias sem membros exibem **Excluir família** tanto na lista quanto na janel
 Famílias com membros precisam ter os vínculos removidos antes da exclusão. A API confirma novamente que não há membros no momento da operação: exclusão e arquivamento usam filtros atômicos, incluindo a presença/ausência de avaliações, para preservar alterações concorrentes. Famílias arquivadas não aceitam novos vínculos nem avaliações até serem restauradas. Todas as operações exigem o mesmo usuário proprietário.
 
 Na tela Famílias, o filtro **Mostrar famílias** inicia em **Ativas**, portanto os registros arquivados não atrapalham o trabalho diário. Os cadastros e seus dados não mudam. Documentos antigos sem o campo `arquivado` são considerados ativos. Não exige novas variáveis nem migração manual.
+
+## Consulta rápida dos familiares (v11)
+
+Na janela da família, ao lado de Ver cartão/Baixar/WhatsApp, use **Ver dados dos familiares**. Abre uma janela de consulta com todos os membros, incluindo o responsável. Cada ficha mostra nome e vínculo, data de nascimento, idade, CPF, telefone, endereço, número e bairro. Em menores de um ano, a idade aparece em meses ou como Menos de 1 mês. Datas ausentes, inválidas ou futuras não geram idade presumida.
+
+**Condições e outras informações** pode ser expandido em cada pessoa para consultar sexo, gestação, criança de 0 a 9 anos, acamado, domiciliado, doenças/condições e identificação autodeclarada. Nascimento e idade ficam visíveis sem expandir. Voltar fecha apenas essa consulta e mantém a janela da família.
+
+A consulta usa `GET /api/familias/:id/dados-membros`, obtendo os dados atuais a cada abertura, com autenticação e verificação de proprietário tanto da família quanto dos membros. O contato segue o responsável atual, como nas fichas individuais. Não retorna usuário proprietário ou histórico completo de avaliações. Resultados de consultas antigas ou de sessões encerradas não são exibidos; o conteúdo é limpo ao sair. Cadastros indisponíveis são indicados sem mostrar dados de outra conta.
+
+Os dados adicionais são exibidos apenas nessa consulta privada. O cartão familiar/PDF/WhatsApp continua com seu conteúdo anterior. A função precisa de internet, segue os modais responsivos e não exige mudança de banco ou de variáveis de ambiente.
+
+## Formulários guiados por etapas (v12)
+
+A mudança é de apresentação: os mesmos controles, IDs, nomes e valores permanecem nos formulários existentes. Não altera rotas de salvamento, modelos, cálculos, vínculos, permissões ou dados armazenados.
+
+**Novo paciente, responsável, novo familiar e edição individual** usam seis etapas: Identificação (inclui sexo e o preenchimento por voz/ficha já existente), Contato, Endereço, Condições e informações (todos os campos e seleções existentes), Família (as mesmas opções e ações de vínculo) e Revisão. **Criação/edição manual de família** usa Dados da família, Responsável e endereço e Revisão, mantendo nome, ficha, microárea e todos os demais campos. Vincular uma pessoa já cadastrada continua disponível na janela Adicionar familiar, com a pesquisa e os campos atuais.
+
+Voltar/Próximo não grava dados nem limpa respostas. Próximo valida os campos da etapa; erros são mostrados junto ao campo. A revisão mostra todos os valores, com Corrigir por seção e Voltar à revisão. O envio final valida todas as etapas, revela o primeiro campo com problema e só então permite ao fluxo existente salvar. Campos herdados e desabilitados continuam com o comportamento atual; não são apagados. A edição também oferece Ir para etapa, evitando percorrer tudo para uma correção pequena.
+
+Pressionar Enter em um campo de texto avança a etapa, enquanto Enter em texto de múltiplas linhas e seleções mantém o comportamento normal. Salvar só aparece na revisão. Fechar/Cancelar descarta o formulário como antes e reinicia as etapas; os rascunhos não são persistidos em disco nem adicionados a armazenamento local. O preenchimento por voz pode continuar preenchendo campos de etapas posteriores, e todos os campos continuam sendo enviados no salvamento existente.
+
+`public/etapas.js` organiza os elementos sem cloná-los, preservando os eventos de máscara, seleção, voz e fluxo familiar. A validação nativa automática é substituída por validação guiada para evitar o erro de foco em campos escondidos; as validações do servidor permanecem. A revisão e seus textos são escapados, e são limpos no cancelamento/logout.
+
+Validação: testes de avanço, retorno, datas, revisão, correção, envio, edição direta e família manual, além dos fluxos anteriores de cadastro e dados. No Chromium foram exercitados novo responsável, novo familiar com contato herdado, edição individual e edição de família, verificando persistência sem duplicação; as seis etapas foram verificadas em sete tamanhos de tela. Não exige mudanças no banco ou nas variáveis de ambiente.

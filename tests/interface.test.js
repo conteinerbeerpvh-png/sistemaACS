@@ -55,7 +55,7 @@ before(async () => {
     dom.window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
     dom.window.localStorage.setItem('acs_token', jwt.sign(agente, secret));
     dom.window.localStorage.setItem('acs_usuario', JSON.stringify({ nome: agente.nome, usuario: agente.usuario }));
-    for (const arquivo of ['modais.js', 'pesquisa.js', 'risco.js', 'script.js', 'organizacao.js', 'cartao.js', 'coelho-savassi.js', 'coelho-formulario.js', 'pwa.js']) vm.runInContext(fs.readFileSync(path.join(pasta, arquivo), 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
+    for (const arquivo of ['modais.js', 'pesquisa.js', 'risco.js', 'etapas.js', 'script.js', 'organizacao.js', 'cartao.js', 'coelho-savassi.js', 'coelho-formulario.js', 'pwa.js']) vm.runInContext(fs.readFileSync(path.join(pasta, arquivo), 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
     await esperar(() => dom.window.document.querySelectorAll('#familiaResponsavel option').length === 3, 'carregar responsáveis');
 });
 after(async () => {
@@ -65,7 +65,14 @@ after(async () => {
     if (mongo) await mongo.stop();
 });
 const elemento = id => dom.window.document.getElementById(id);
-const enviar = id => elemento(id).dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+const enviar = id => {
+    const form = elemento(id); const proximo = form.querySelector('[data-etapas-proximo]');
+    for (let i = 0; proximo && !proximo.hidden && i < 8; i++) {
+        const antes = form.querySelector('.etapas-andamento').textContent; proximo.click();
+        if (form.querySelector('.etapas-andamento').textContent === antes) return;
+    }
+    form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+};
 
 test('interface cria família e vincula pessoa existente', async () => {
     dom.window.document.querySelector('[data-tela="familias"]').click();
@@ -115,6 +122,31 @@ test('novo familiar herda endereço e é vinculado depois de salvar, sem duplica
     assert.equal(familia.membros.find(m => String(m.cadastroId) === familiar.id).parentesco, 'Filho');
 });
 
+test('dados dos familiares abrem junto ao cartão, mostram nascimentos de todos e consultam alterações atuais', async () => {
+    assert.ok(elemento('verDadosFamiliares'));
+    elemento('verDadosFamiliares').click();
+    await esperar(() => elemento('dadosFamiliaresConteudo').querySelectorAll('.dados-familiar').length === 3, 'carregar todas as fichas da família');
+    assert.equal(elemento('dadosFamiliaresDialog').open, true);
+    assert.equal(elemento('familiaDialog').open, true);
+    assert.match(elemento('dadosFamiliaresConteudo').textContent, /01\/01\/1990/);
+    assert.match(elemento('dadosFamiliaresConteudo').textContent, /01\/01\/2010/);
+    assert.match(elemento('dadosFamiliaresConteudo').textContent, /Responsável pela família/);
+    assert.equal(elemento('dadosFamiliaresConteudo').querySelectorAll('form').length, 0);
+    elemento('fecharDadosFamiliares').click();
+    assert.equal(elemento('familiaDialog').open, true);
+    await Cadastro.updateOne({ _id: existente.id }, { $set: { dataNascimento: '1991-02-03', outrasDoencas: '<img src=x onerror=alert(1)>' } });
+    elemento('verDadosFamiliares').click();
+    await esperar(() => elemento('dadosFamiliaresConteudo').textContent.includes('03/02/1991'), 'reconsultar nascimento atualizado');
+    assert.equal(elemento('dadosFamiliaresConteudo').querySelectorAll('img').length, 0);
+    elemento('fecharDadosFamiliares').click();
+    assert.equal(dom.window.idadeFamiliar('2000-10-22', '2026-10-21'), '25 anos');
+    assert.equal(dom.window.idadeFamiliar('2000-10-21', '2026-10-21'), '26 anos');
+    assert.equal(dom.window.idadeFamiliar('2026-09-21', '2026-10-21'), '1 mês');
+    assert.equal(dom.window.idadeFamiliar('2026-10-20', '2026-10-21'), 'Menos de 1 mês');
+    assert.equal(dom.window.idadeFamiliar(null, '2026-10-21'), 'Não informada');
+    assert.equal(dom.window.idadeFamiliar('2026-10-22', '2026-10-21'), 'Não informada');
+});
+
 test('cadastro individual abre tabela do PDF, salva na família e filtra pelo risco compartilhado', async () => {
     const botao = elemento('cadastrosList').querySelector(`[data-risco="${responsavel.id}"]`);
     assert.ok(botao); botao.click();
@@ -136,6 +168,7 @@ test('cadastro individual abre tabela do PDF, salva na família e filtra pelo ri
 test('marcar responsável no novo paciente cria família e abre membros; editar reaproveita a mesma família', async () => {
     elemento('filtroRiscoNivel').value = ''; elemento('filtroRiscoNivel').dispatchEvent(new dom.window.Event('change'));
     elemento('cancelBtn').click();
+    dom.window.fecharTodosModais(); dom.window.document.querySelector('[data-tela="cadastro"]').click();
     for (const [id, valor] of Object.entries({ nomeCompleto: 'Responsável pelo Cadastro', dataNascimento: '01/01/1990', cpf: '000.000.000-04', telefone: '(00) 00000-0000', sexo: 'M', criancaDeZeroANove: 'false', gestante: 'false', acamado: 'false', domiciliado: 'false', endereco: 'Rua do Responsável', numero: '2', bairro: 'Bairro Teste' })) elemento(id).value = valor;
     elemento('responsavelFamilia').checked = true;
     elemento('responsavelFamilia').dispatchEvent(new dom.window.Event('change'));
