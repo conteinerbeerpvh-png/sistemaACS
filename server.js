@@ -93,6 +93,45 @@ function criarApp(opcoes = {}) {
             res.status(500).json({ message: 'Não foi possível concluir o login. Tente novamente.' });
         }
     });
+    function perfilDoUsuario(usuario) {
+        return {
+            nome: usuario.nome || '',
+            usuario: usuario.usuario || '',
+            nomeAcs: usuario.nomeAcs || usuario.nome || '',
+            unidadeSaude: usuario.unidadeSaude || '',
+            equipe: usuario.equipe || '',
+            setor: usuario.setor || ''
+        };
+    }
+    app.get('/api/auth/perfil', autenticar, async (req, res) => {
+        try {
+            const usuarioAtual = await Usuario.findById(req.usuario.id).select('nome usuario nomeAcs unidadeSaude equipe setor').lean();
+            if (!usuarioAtual) return res.status(404).json({ message: 'Usuário não encontrado.' });
+            res.json(perfilDoUsuario(usuarioAtual));
+        } catch (error) {
+            res.status(500).json({ message: 'Não foi possível carregar seu perfil profissional.' });
+        }
+    });
+    app.put('/api/auth/perfil', autenticar, async (req, res) => {
+        try {
+            const campos = ['nomeAcs', 'unidadeSaude', 'equipe', 'setor'];
+            const dados = {};
+            for (const campo of campos) {
+                if (typeof req.body[campo] !== 'string' || req.body[campo].trim().length > 120) {
+                    return res.status(400).json({ message: 'Preencha os campos do perfil com até 120 caracteres.' });
+                }
+                dados[campo] = req.body[campo].trim();
+            }
+            if (!dados.nomeAcs || !dados.unidadeSaude || !dados.equipe || !dados.setor) {
+                return res.status(400).json({ message: 'Informe nome da ACS, unidade de saúde, equipe e setor/microárea.' });
+            }
+            const atualizado = await Usuario.findByIdAndUpdate(req.usuario.id, { $set: dados }, { new: true, runValidators: true }).select('nome usuario nomeAcs unidadeSaude equipe setor').lean();
+            if (!atualizado) return res.status(404).json({ message: 'Usuário não encontrado.' });
+            res.json(perfilDoUsuario(atualizado));
+        } catch (error) {
+            res.status(400).json({ message: 'Não foi possível salvar seu perfil profissional.' });
+        }
+    });
     app.post('/api/scan', autenticar, upload.single('ficha'), async (req, res) => {
         try {
             if (!visionClient) return res.status(500).json({ message: 'O servidor não está configurado com as chaves do Google Cloud.' });

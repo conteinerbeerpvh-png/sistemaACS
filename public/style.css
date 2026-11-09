@@ -654,3 +654,11 @@ dialog .form-buttons.etapas-acoes { display: grid; grid-template-columns: repeat
 .etapas-acoes:has(.etapas-voltar[hidden]):has(.btn-cancel[hidden]) .etapas-proximo { grid-column: 1 / -1; }
 .etapas-acoes:has(.etapas-proximo[hidden]) .btn-cancel { grid-column: 1 / -1; }
 dialog:has(.etapas-acoes) { scroll-padding-bottom: 150px; }
+
+
+/* Perfil profissional da ACS */
+#perfilForm { max-width: 900px; }
+#perfilMensagem { margin-top: 12px; }
+@media (max-width: 768px) {
+  #perfilForm .form-row { flex-direction: column; }
+}

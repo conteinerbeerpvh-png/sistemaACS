@@ -33,6 +33,7 @@ function mostrarApp() {
   window.mostrarTela?.('pacientes');
   buscarCadastros();
   window.carregarOrganizacao?.();
+  carregarPerfilProfissional();
 }
 
 function sair() {
@@ -52,6 +53,51 @@ function sair() {
 }
 
 function salvarSessao(dados) { token = dados.token; usuario = dados.usuario; localStorage.setItem('acs_token', token); localStorage.setItem('acs_usuario', JSON.stringify(usuario)); mostrarApp(); }
+async function carregarPerfilProfissional() {
+  if (!token || !$('perfilForm')) return;
+  try {
+    const response = await requisicao('/api/auth/perfil');
+    if (!response.ok) throw new Error(await mensagem(response));
+    const perfil = await response.json();
+    $('perfilNomeAcs').value = perfil.nomeAcs || perfil.nome || '';
+    $('perfilUnidade').value = perfil.unidadeSaude || '';
+    $('perfilEquipe').value = perfil.equipe || '';
+    $('perfilSetor').value = perfil.setor || '';
+    if (perfil.nomeAcs && perfil.unidadeSaude && perfil.equipe && perfil.setor) {
+      $('perfilMensagem').textContent = 'Perfil profissional configurado. Os próximos cartões usarão estes dados.';
+    } else {
+      $('perfilMensagem').textContent = 'Complete seu perfil profissional para que os cartões identifiquem corretamente sua unidade, equipe e setor.';
+    }
+  } catch (error) {
+    $('perfilMensagem').textContent = error.message;
+  }
+}
+$('perfilForm')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const botao = $('salvarPerfil');
+  botao.disabled = true;
+  $('perfilMensagem').textContent = 'Salvando perfil...';
+  try {
+    const response = await requisicao('/api/auth/perfil', {
+      method: 'PUT',
+      body: JSON.stringify({
+        nomeAcs: $('perfilNomeAcs').value,
+        unidadeSaude: $('perfilUnidade').value,
+        equipe: $('perfilEquipe').value,
+        setor: $('perfilSetor').value
+      })
+    });
+    if (!response.ok) throw new Error(await mensagem(response));
+    const perfil = await response.json();
+    usuario = { ...(usuario || {}), nome: perfil.nome, usuario: perfil.usuario };
+    localStorage.setItem('acs_usuario', JSON.stringify(usuario));
+    $('perfilMensagem').textContent = 'Perfil salvo com sucesso. Atualize o cartão da família para aplicar os dados.';
+  } catch (error) {
+    $('perfilMensagem').textContent = error.message;
+  } finally {
+    botao.disabled = false;
+  }
+});
 
 $('toggleAuth').addEventListener('click', () => { const criando = $('registerForm').hidden; $('registerForm').hidden = !criando; $('loginForm').hidden = criando; $('toggleAuth').textContent = criando ? 'Voltar para o login' : 'Criar novo usuário e senha'; $('authDescricao').textContent = criando ? 'Crie uma conta para manter seus cadastros separados.' : 'Entre para acessar seus cadastros individuais.'; $('authMensagem').textContent = ''; });
 $('loginForm').addEventListener('submit', async event => { event.preventDefault(); const botao = $('loginForm').querySelector('button'); botao.disabled = true; $('authMensagem').textContent = 'Entrando...'; try { const response = await requisicao('/api/auth/login', { method: 'POST', body: JSON.stringify({ usuario: $('loginUsuario').value.trim(), senha: $('loginSenha').value }) }); if (!response.ok) return $('authMensagem').textContent = await mensagem(response); salvarSessao(await response.json()); } catch (error) { $('authMensagem').textContent = error.message || 'Não foi possível acessar o servidor. Tente novamente.'; } finally { botao.disabled = false; } });

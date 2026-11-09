@@ -7,7 +7,7 @@ function marcarCartaoPronto(id, mensagem, pronto) {
 async function prepararCartaoFamilia(id, forcar = false) {
     const familia = familias.find(f => f._id === id);
     if (!familia || !token) return null;
-    const assinatura = JSON.stringify([familia.nome, familia.responsavelId, familia.numeroFicha, familia.microarea, familia.membros]);
+    const assinatura = JSON.stringify([familia.nome, familia.responsavelId, familia.numeroFicha, familia.microarea, familia.membros, token]);
     const anterior = cartoesFamilia.get(id);
     if (!forcar && anterior?.assinatura === assinatura) {
         if (anterior.arquivo) { marcarCartaoPronto(id, 'Cartão pronto: frente e verso com os dados atuais da família.', true); return anterior; }
@@ -70,7 +70,7 @@ window.acaoCartaoFamilia = async (acao, id) => {
     const arquivo = new File([entrada.arquivo], entrada.nome, { type: 'application/pdf' });
     if (navigator.share && navigator.canShare?.({ files: [arquivo] })) {
         try {
-            await navigator.share({ files: [arquivo], title: 'Cartão da família', text: 'Cartão da família - USF Nova Floresta. Equipe MONTE SINAI. ACS DIANA FREIRE.' });
+            await navigator.share({ files: [arquivo], title: 'Cartão da família', text: `Cartão da família - ${entrada.dados.unidade || 'unidade de saúde'}. Equipe ${entrada.dados.equipe || 'não informada'}. ACS ${entrada.dados.acs || 'não informada'}.` });
             marcarCartaoPronto(id, 'Cartão entregue ao menu de compartilhamento. Escolha o WhatsApp para enviar.', true);
         } catch (error) {
             if (error.name === 'AbortError') marcarCartaoPronto(id, 'Compartilhamento cancelado. O cartão continua disponível.', true);
@@ -81,7 +81,7 @@ window.acaoCartaoFamilia = async (acao, id) => {
     let numero = String(entrada.dados.telefone || '').replace(/\D/g, '');
     if (numero.length === 10 || numero.length === 11) numero = '55' + numero;
     if (/^55\d{10,11}$/.test(numero)) {
-        const mensagemCartao = 'Olá! Segue o cartão da sua família da USF Nova Floresta. Equipe MONTE SINAI - ACS DIANA FREIRE.';
+        const mensagemCartao = `Olá! Segue o cartão da sua família da ${entrada.dados.unidade || 'unidade de saúde'}. Equipe ${entrada.dados.equipe || 'não informada'} - ACS ${entrada.dados.acs || 'não informada'}.`;
         window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagemCartao)}`, '_blank', 'noopener,noreferrer');
     }
     baixarCartao(entrada);
